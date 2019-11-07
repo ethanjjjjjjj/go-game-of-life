@@ -6,8 +6,34 @@ import (
 	"strings"
 )
 
-func numNeighbours(c cell, world [][]byte) int {
-
+// returns number of alive neighbours to a cell
+func numNeighbours(c cell, world [][]byte, p golParams) int {
+	var num = 0
+	if world[c.y][(c.x-1)%p.imageWidth] != 0 {
+		num = num + 1
+	}
+	if world[(c.y+1)%p.imageHeight][(c.x-1)%p.imageWidth] != 0 {
+		num = num + 1
+	}
+	if world[(c.y+1)%p.imageHeight][c.x] != 0 {
+		num = num + 1
+	}
+	if world[(c.y+1)%p.imageHeight][(c.x+1)%p.imageWidth] != 0 {
+		num = num + 1
+	}
+	if world[c.y][(c.x+1)%p.imageWidth] != 0 {
+		num = num + 1
+	}
+	if world[(c.y-1)%p.imageHeight][(c.x+1)%p.imageWidth] != 0 {
+		num = num + 1
+	}
+	if world[(c.y-1)%p.imageHeight][c.x] != 0 {
+		num = num + 1
+	}
+	if world[(c.y-1)%p.imageHeight][(c.x-1)%p.imageWidth] != 0 {
+		num = num + 1
+	}
+	return num
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
