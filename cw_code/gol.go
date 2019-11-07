@@ -7,30 +7,30 @@ import (
 )
 
 // returns number of alive neighbours to a cell
-func numNeighbours(c cell, world [][]byte, p golParams) int {
+func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
-	if world[c.y][(c.x-1)%p.imageWidth] != 0 {
+	if world[y][(x-1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[(c.y+1)%p.imageHeight][(c.x-1)%p.imageWidth] != 0 {
+	if world[(y+1)%p.imageHeight][(x-1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[(c.y+1)%p.imageHeight][c.x] != 0 {
+	if world[(y+1)%p.imageHeight][x] != 0 {
 		num = num + 1
 	}
-	if world[(c.y+1)%p.imageHeight][(c.x+1)%p.imageWidth] != 0 {
+	if world[(y+1)%p.imageHeight][(x+1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[c.y][(c.x+1)%p.imageWidth] != 0 {
+	if world[y][(x+1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[(c.y-1)%p.imageHeight][(c.x+1)%p.imageWidth] != 0 {
+	if world[(y-1)%p.imageHeight][(x+1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[(c.y-1)%p.imageHeight][c.x] != 0 {
+	if world[(y-1)%p.imageHeight][x] != 0 {
 		num = num + 1
 	}
-	if world[(c.y-1)%p.imageHeight][(c.x-1)%p.imageWidth] != 0 {
+	if world[(y-1)%p.imageHeight][(x-1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
 	return num
