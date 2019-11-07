@@ -70,7 +70,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 					worldnew[i] = make([]byte, p.imageWidth)
 				}
 				copy(worldnew, world)
-				neighbours := numNeighbours(x, y, world)
+				neighbours := numNeighbours(x, y, world, p)
 				if neighbours < 2 {
 					worldnew[y][x] = 0
 				} else if neighbours > 1 || neighbours < 4 {
