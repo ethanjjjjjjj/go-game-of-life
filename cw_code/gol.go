@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+func numNeighbours(c cell, world [][]byte) int {
+
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
 
