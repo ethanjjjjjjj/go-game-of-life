@@ -62,10 +62,10 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
-
+		worldnew := make([][]byte, p.imageHeight)
 		for y := 0; y < p.imageHeight; y++ {
 			for x := 0; x < p.imageWidth; x++ {
-				worldnew := make([][]byte, p.imageHeight)
+
 				for i := range worldnew {
 					worldnew[i] = make([]byte, p.imageWidth)
 				}
@@ -89,6 +89,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				//world[y][x] = world[y][x] ^ 0xFF
 			}
 		}
+		copy(world, worldnew)
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
