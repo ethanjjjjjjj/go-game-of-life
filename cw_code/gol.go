@@ -20,41 +20,51 @@ func printGrid(world [][]byte, p golParams) {
 	fmt.Println("    ")
 }
 
+func mod(a, b int) int {
+	if a < 0 {
+		for {
+			a = a + b
+			if a >= 0 {
+				break
+			}
+		}
+	} else if a >= b {
+		for {
+			a = a - b
+			if a < b {
+				break
+			}
+		}
+	}
+	return a
+}
+
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
-	var xx = x
-	var yy = y
-	if x < 0 {
-		xx = x + p.imageWidth
-	}
 
-	if y < 0 {
-		yy = y + p.imageHeight
-	}
-
-	if world[yy][xx] != 0 {
+	if world[y][mod((x-1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
-	if world[(y+1)%p.imageHeight][xx] != 0 {
+	if world[mod(y+1, p.imageHeight)][mod((x-1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
-	if world[(y+1)%p.imageHeight][x] != 0 {
+	if world[mod(y+1, p.imageHeight)][x] != 0 {
 		num = num + 1
 	}
-	if world[(y+1)%p.imageHeight][(x+1)%p.imageWidth] != 0 {
+	if world[mod(y+1, p.imageHeight)][mod((x+1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
-	if world[y][(x+1)%p.imageWidth] != 0 {
+	if world[y][mod((x+1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
-	if world[yy][(x+1)%p.imageWidth] != 0 {
+	if world[mod((y-1), p.imageHeight)][(x+1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[yy][x] != 0 {
+	if world[mod((y-1), p.imageHeight)][x] != 0 {
 		num = num + 1
 	}
-	if world[yy][xx] != 0 {
+	if world[mod((y-1), p.imageHeight)][mod((x-1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
 	return num
