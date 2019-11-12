@@ -113,7 +113,8 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				//world[y][x] = world[y][x] ^ 0xFF
 			}
 		}
-		printGrid(world, p)
+		//printGrid(world, p)
+		world := make([][]byte, p.imageHeight)
 		copy(world, worldnew)
 	}
 
@@ -133,5 +134,6 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	<-d.io.idle
 
 	// Return the coordinates of cells that are still alive.
+	fmt.Println(finalAlive)
 	alive <- finalAlive
 }
