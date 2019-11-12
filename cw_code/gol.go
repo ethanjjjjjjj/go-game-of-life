@@ -87,19 +87,20 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
 		worldnew := make([][]byte, p.imageHeight)
+		for i := range worldnew {
+			worldnew[i] = make([]byte, p.imageWidth)
+		}
 		for y := 0; y < p.imageHeight; y++ {
 			for x := 0; x < p.imageWidth; x++ {
 
-				for i := range worldnew {
-					worldnew[i] = make([]byte, p.imageWidth)
-				}
 				copy(worldnew, world)
 				neighbours := numNeighbours(x, y, world, p)
-				if neighbours < 2 {
+				if neighbours < 2 && world[y][x] == 255 {
 					worldnew[y][x] = 0
-				} else if neighbours > 1 || neighbours < 4 {
+				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 {
+					//worldnew[y][x] == 255
 
-				} else if neighbours > 3 {
+				} else if neighbours > 3 && world[y][x] == 255 {
 					worldnew[y][x] = 0
 				} else if world[y][x] == 0 && neighbours == 3 {
 					worldnew[y][x] = 255
@@ -115,6 +116,9 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		}
 		//printGrid(world, p)
 		world := make([][]byte, p.imageHeight)
+		for i := range world {
+			world[i] = make([]byte, p.imageWidth)
+		}
 		copy(world, worldnew)
 	}
 
