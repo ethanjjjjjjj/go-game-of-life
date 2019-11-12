@@ -6,13 +6,37 @@ import (
 	"strings"
 )
 
+func printGrid(world [][]byte, p golParams) {
+	for y := 0; y < p.imageHeight; y++ {
+		for x := 0; x < p.imageWidth; x++ {
+			if world[y][x] == 255 {
+				fmt.Print("1 ")
+			} else {
+				fmt.Print("0 ")
+			}
+		}
+		fmt.Println(" ")
+	}
+	fmt.Println("    ")
+}
+
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
-	if world[y][(x-1)%p.imageWidth] != 0 {
+	var xx = x
+	var yy = y
+	if x < 0 {
+		xx = x + p.imageWidth
+	}
+
+	if y < 0 {
+		yy = y + p.imageHeight
+	}
+
+	if world[yy][xx] != 0 {
 		num = num + 1
 	}
-	if world[(y+1)%p.imageHeight][(x-1)%p.imageWidth] != 0 {
+	if world[(y+1)%p.imageHeight][xx] != 0 {
 		num = num + 1
 	}
 	if world[(y+1)%p.imageHeight][x] != 0 {
@@ -24,13 +48,13 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	if world[y][(x+1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[(y-1)%p.imageHeight][(x+1)%p.imageWidth] != 0 {
+	if world[yy][(x+1)%p.imageWidth] != 0 {
 		num = num + 1
 	}
-	if world[(y-1)%p.imageHeight][x] != 0 {
+	if world[yy][x] != 0 {
 		num = num + 1
 	}
-	if world[(y-1)%p.imageHeight][(x-1)%p.imageWidth] != 0 {
+	if world[yy][xx] != 0 {
 		num = num + 1
 	}
 	return num
@@ -89,6 +113,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				//world[y][x] = world[y][x] ^ 0xFF
 			}
 		}
+		printGrid(world, p)
 		copy(world, worldnew)
 	}
 
