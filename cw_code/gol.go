@@ -20,6 +20,7 @@ func printGrid(world [][]byte, p golParams) {
 	fmt.Println("    ")
 }
 
+//a different mod function because go doesn't like modding negatives
 func mod(a, b int) int {
 	if a < 0 {
 		for {
@@ -58,7 +59,7 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	if world[y][mod((x+1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][(x+1)%p.imageWidth] != 0 {
+	if world[mod((y-1), p.imageHeight)][mod((x+1), p.imageWidth)] != 0 {
 		num = num + 1
 	}
 	if world[mod((y-1), p.imageHeight)][x] != 0 {
@@ -68,6 +69,20 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 		num = num + 1
 	}
 	return num
+}
+
+//copies the world from one slice to another
+func copyworld(world [][]byte, p golParams) [][]byte {
+	worldnew := make([][]byte, p.imageHeight)
+	for i := range world {
+		worldnew[i] = make([]byte, p.imageWidth)
+	}
+	for y, row := range world {
+		for x, cell := range row {
+			worldnew[y][x] = cell
+		}
+	}
+	return worldnew
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -96,40 +111,23 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
-		worldnew := make([][]byte, p.imageHeight)
-		for i := range worldnew {
-			worldnew[i] = make([]byte, p.imageWidth)
-		}
+		worldnew := copyworld(world, p)
 		for y := 0; y < p.imageHeight; y++ {
 			for x := 0; x < p.imageWidth; x++ {
-
-				copy(worldnew, world)
+				worldnew[y][x] = world[y][x]
 				neighbours := numNeighbours(x, y, world, p)
-				if neighbours < 2 && world[y][x] == 255 {
+				if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
 					worldnew[y][x] = 0
-				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 {
-					//worldnew[y][x] == 255
-
-				} else if neighbours > 3 && world[y][x] == 255 {
+				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
+					//do nothing
+				} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
 					worldnew[y][x] = 0
-				} else if world[y][x] == 0 && neighbours == 3 {
+				} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
 					worldnew[y][x] = 255
 				}
-
-				// Placeholder for the actual Game of Life logic: flips alive cells to dead and dead cells to alive.
-				//1 or less neighbours dies
-				//2 or 3 neighbours stays alive
-				//4 or more neighbours dies
-				//empty with 3 neighbours becomes alive
-				//world[y][x] = world[y][x] ^ 0xFF
 			}
 		}
-		//printGrid(world, p)
-		world := make([][]byte, p.imageHeight)
-		for i := range world {
-			world[i] = make([]byte, p.imageWidth)
-		}
-		copy(world, worldnew)
+		world = copyworld(worldnew, p)
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
