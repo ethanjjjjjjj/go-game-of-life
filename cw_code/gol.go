@@ -149,4 +149,5 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	fmt.Println(finalAlive)
 	alive <- finalAlive
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
+	fmt.Println("SENT FILE NAME")
 }

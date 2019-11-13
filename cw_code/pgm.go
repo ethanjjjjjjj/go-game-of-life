@@ -20,9 +20,11 @@ func writePgmImage(p golParams, i ioChans) {
 	_ = os.Mkdir("out", os.ModePerm)
 
 	filename := <-i.distributor.filename
+	fmt.Println("RECEIVED FILE NAME")
 	file, ioError := os.Create("out/" + filename + ".pgm")
 	check(ioError)
 	defer file.Close()
+
 
 	_, _ = file.WriteString("P5\n")
 	//_, _ = file.WriteString("# PGM file writer by pnmmodules (https://github.com/owainkenwayucl/pnmmodules).\n")
@@ -38,7 +40,9 @@ func writePgmImage(p golParams, i ioChans) {
 		world[i] = make([]byte, p.imageWidth)
 	}
 	alive := <-i.distributor.output
+	fmt.Println("ALIVE CELLS RECEIVED IN PGM")
 	fmt.Println(alive)
+	
 
 	for _, c := range alive {
 		world[c.y][c.x] = 255

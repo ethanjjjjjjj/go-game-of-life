@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 )
 
 // golParams provides the details of how to run the Game of Life and which image to load.
@@ -99,8 +100,10 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	go pgmIo(p, ioChans)
 
 	alive := <-aliveCells
-	dChans.io.command <- 0
+	fmt.Println("ALIVE RECEIVED IN MAIN")
 	ioChans.distributor.output <- alive
+	fmt.Println("DSFDSFDGFDGDS")
+	dChans.io.command <- 0
 
 	return alive
 }
@@ -132,8 +135,8 @@ func main() {
 
 	params.turns = 40
 
-	startControlServer(params)
-	go getKeyboardCommand(nil)
+	//startControlServer(params)
+	//go getKeyboardCommand(nil)
 	gameOfLife(params, nil)
-	StopControlServer()
+	//StopControlServer()
 }
