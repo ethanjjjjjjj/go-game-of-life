@@ -120,14 +120,21 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			worlds[0] = world
 		} else {
 			for i := 0; i < (p.imageHeight / p.threads); i++ {
+				var worldslice [][]byte
 				if i == 0 {
-					worlds[i] = append(world[p.imageHeight:p.imageHeight], world[(i*(p.imageHeight/p.threads)):(i*(p.imageHeight/p.threads)+(p.imageHeight/p.threads)+1)]..)
-				}else if i==((p.imageHeight/p.threads)-1){
-					worlds[i]=append(world[i*(p.imageHeight/p.threads)-1 : i*(p.imageHeight/p.threads)+(p.imageHeight/p.threads)],world[0:0])
-				}else{
-				
-				worlds[i] = world[i*(p.imageHeight/p.threads)-1 : i*(p.imageHeight/p.threads)+(p.imageHeight/p.threads)+1]
+					worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
+					worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)]...)
+					worlds = append(worlds, worldslice)
+				} else if i == ((p.imageHeight / p.threads) - 1) {
+
+					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
+					worldslice = append(worldslice, world[0:0]...)
+					worlds = append(worlds, worldslice)
+				} else {
+					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)+1]...)
+					worlds = append(worlds, worldslice)
 				}
+				fmt.Println(worlds[i])
 			}
 		}
 		fmt.Println(worlds)
