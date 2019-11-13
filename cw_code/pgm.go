@@ -37,8 +37,22 @@ func writePgmImage(p golParams, i ioChans) {
 	for i := range world {
 		world[i] = make([]byte, p.imageWidth)
 	}
+	alive := <-i.distributor.output
+	
+	for _,c := range alive {
+		world[c.y][c.x] = 255
+	}
 
-	// TODO: write a for-loop to receive the world from the distributor when outputting.
+	for y := 0; y < p.imageHeight; y++ {
+		for x := 0; x < p.imageWidth; x++ {
+			if world[y][x] != 0{
+			}else{
+				world[y][x] = 0
+			}
+		}
+	}
+
+	printGrid(world,p)
 
 	for y := 0; y < p.imageHeight; y++ {
 		for x := 0; x < p.imageWidth; x++ {

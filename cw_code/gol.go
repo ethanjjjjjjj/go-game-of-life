@@ -148,4 +148,5 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	// Return the coordinates of cells that are still alive.
 	fmt.Println(finalAlive)
 	alive <- finalAlive
+	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
 }

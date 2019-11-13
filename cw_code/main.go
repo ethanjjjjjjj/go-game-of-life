@@ -1,6 +1,8 @@
 package main
 
-import "flag"
+import (
+	"flag"
+)
 
 // golParams provides the details of how to run the Game of Life and which image to load.
 type golParams struct {
@@ -35,8 +37,10 @@ type distributorToIo struct {
 	command chan<- ioCommand
 	idle    <-chan bool
 
-	filename  chan<- string
-	inputVal  <-chan uint8
+	filename chan<- string
+	inputVal <-chan uint8
+
+	output chan []cell
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -45,8 +49,10 @@ type ioToDistributor struct {
 	command <-chan ioCommand
 	idle    chan<- bool
 
-	filename  <-chan string
-	inputVal  chan<- uint8
+	filename <-chan string
+	inputVal chan<- uint8
+
+	output chan []cell
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -83,12 +89,19 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.inputVal = inputVal
 	ioChans.distributor.inputVal = inputVal
 
+	output := make(chan []cell)
+	dChans.io.output = output
+	ioChans.distributor.output = output
+
 	aliveCells := make(chan []cell)
 
 	go distributor(p, dChans, aliveCells)
 	go pgmIo(p, ioChans)
 
 	alive := <-aliveCells
+	dChans.io.command <- 0
+	ioChans.distributor.output <- alive
+
 	return alive
 }
 
@@ -106,18 +119,18 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		512,
+		64,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		512,
+		64,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
 
-	params.turns = 10000000000
+	params.turns = 40
 
 	startControlServer(params)
 	gameOfLife(params, nil)
