@@ -84,6 +84,9 @@ func copyworld(world [][]byte, p golParams) [][]byte {
 	}
 	return worldnew
 }
+func golWorker(p golParams, worldslice [][]byte) {
+
+}
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
@@ -111,23 +114,23 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
-		worldnew := copyworld(world, p)
-		for y := 0; y < p.imageHeight; y++ {
-			for x := 0; x < p.imageWidth; x++ {
-				worldnew[y][x] = world[y][x]
-				neighbours := numNeighbours(x, y, world, p)
-				if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
-					worldnew[y][x] = 0
-				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
-					//do nothing
-				} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
-					worldnew[y][x] = 0
-				} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
-					worldnew[y][x] = 255
+		//splitworld
+		var worlds [][][]byte
+		if p.imageHeight == 1 {
+			worlds[0] = world
+		} else {
+			for i := 0; i < (p.imageHeight / p.threads); i++ {
+				if i == 0 {
+					worlds[i] = append(world[p.imageHeight:p.imageHeight], world[(i*(p.imageHeight/p.threads)):(i*(p.imageHeight/p.threads)+(p.imageHeight/p.threads)+1)]..)
+				}else if i==((p.imageHeight/p.threads)-1){
+					worlds[i]=append(world[i*(p.imageHeight/p.threads)-1 : i*(p.imageHeight/p.threads)+(p.imageHeight/p.threads)],world[0:0])
+				}else{
+				
+				worlds[i] = world[i*(p.imageHeight/p.threads)-1 : i*(p.imageHeight/p.threads)+(p.imageHeight/p.threads)+1]
 				}
 			}
 		}
-		world = copyworld(worldnew, p)
+		fmt.Println(worlds)
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
