@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 )
 
 // golParams provides the details of how to run the Game of Life and which image to load.
@@ -42,6 +41,7 @@ type distributorToIo struct {
 	inputVal <-chan uint8
 
 	output chan []cell
+	stop   chan int
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -54,6 +54,7 @@ type ioToDistributor struct {
 	inputVal chan<- uint8
 
 	output chan []cell
+	stop   chan int
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -94,17 +95,17 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.output = output
 	ioChans.distributor.output = output
 
+	stop := make(chan int)
+	dChans.io.stop = stop
+	ioChans.distributor.stop = stop
+
 	aliveCells := make(chan []cell)
 
 	go distributor(p, dChans, aliveCells)
 	go pgmIo(p, ioChans)
 
 	alive := <-aliveCells
-	fmt.Println("ALIVE RECEIVED IN MAIN")
-	ioChans.distributor.output <- alive
-	fmt.Println("DSFDSFDGFDGDS")
-	dChans.io.command <- 0
-
+	<-dChans.io.stop
 	return alive
 }
 
@@ -122,18 +123,18 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		512,
+		16,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		512,
+		16,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
 
-	params.turns = 40
+	params.turns = 400
 
 	//startControlServer(params)
 	//go getKeyboardCommand(nil)

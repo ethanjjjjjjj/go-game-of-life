@@ -20,7 +20,6 @@ func writePgmImage(p golParams, i ioChans) {
 	_ = os.Mkdir("out", os.ModePerm)
 
 	filename := <-i.distributor.filename
-	fmt.Println("RECEIVED FILE NAME")
 	file, ioError := os.Create("out/" + filename + ".pgm")
 	check(ioError)
 	defer file.Close()
@@ -39,15 +38,12 @@ func writePgmImage(p golParams, i ioChans) {
 	for i := range world {
 		world[i] = make([]byte, p.imageWidth)
 	}
-	alive := <-i.distributor.output
-	fmt.Println("ALIVE CELLS RECEIVED IN PGM")
-	fmt.Println(alive)
 	
+	alive := <-i.distributor.output	
 
+	fmt.Println(alive, "in PGM")
 	for _, c := range alive {
 		world[c.y][c.x] = 255
-		var y = c.x
-		_ = y
 	}
 
 	for y := 0; y < p.imageHeight; y++ {
@@ -56,11 +52,11 @@ func writePgmImage(p golParams, i ioChans) {
 			check(ioError)
 		}
 	}
-	printGrid(world, p)
 	ioError = file.Sync()
 	check(ioError)
 
 	fmt.Println("File", filename, "output done!")
+	i.distributor.stop <- 1
 }
 
 // readPgmImage opens a pgm file and sends its data as an array of bytes.
