@@ -44,28 +44,28 @@ func mod(a, b int) int {
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
 
-	if world[y][mod((x-1), p.imageWidth)] != 0 {
+	if world[y][mod((x-1), len(world[y]) )] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, p.imageHeight)][mod((x-1), p.imageWidth)] != 0 {
+	if world[mod(y+1, len(world))][mod((x-1), len(world[y]))] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, p.imageHeight)][x] != 0 {
+	if world[mod(y+1, len(world))][x] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, p.imageHeight)][mod((x+1), p.imageWidth)] != 0 {
+	if world[mod(y+1, len(world))][mod((x+1), len(world[y]))] != 0 {
 		num = num + 1
 	}
-	if world[y][mod((x+1), p.imageWidth)] != 0 {
+	if world[y][mod((x+1), len(world[y]))] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][mod((x+1), p.imageWidth)] != 0 {
+	if world[mod((y-1), len(world))][mod((x+1), len(world[y]))] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][x] != 0 {
+	if world[mod((y-1), len(world))][x] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][mod((x-1), p.imageWidth)] != 0 {
+	if world[mod((y-1), len(world))][mod((x-1), len(world[y]))] != 0 {
 		num = num + 1
 	}
 	return num
