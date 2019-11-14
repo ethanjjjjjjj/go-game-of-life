@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"sync"
 )
 
 // golParams provides the details of how to run the Game of Life and which image to load.
@@ -40,8 +41,8 @@ type distributorToIo struct {
 	filename chan<- string
 	inputVal <-chan uint8
 
-	output chan []cell
-	stop   chan int
+	output chan<- []cell
+	stop   *sync.WaitGroup
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -53,8 +54,8 @@ type ioToDistributor struct {
 	filename <-chan string
 	inputVal chan<- uint8
 
-	output chan []cell
-	stop   chan int
+	output <-chan []cell
+	stop   *sync.WaitGroup
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -95,17 +96,18 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.output = output
 	ioChans.distributor.output = output
 
-	stop := make(chan int)
-	dChans.io.stop = stop
-	ioChans.distributor.stop = stop
+	var stop sync.WaitGroup
+	dChans.io.stop = &stop
+	ioChans.distributor.stop = &stop
 
 	aliveCells := make(chan []cell)
 
 	go distributor(p, dChans, aliveCells)
+	stop.Add(1)
 	go pgmIo(p, ioChans)
 
 	alive := <-aliveCells
-	<-dChans.io.stop
+	dChans.io.stop.Wait()
 	return alive
 }
 
@@ -134,10 +136,10 @@ func main() {
 
 	flag.Parse()
 
-	params.turns = 400
+	params.turns = 100
 
-	//startControlServer(params)
-	//go getKeyboardCommand(nil)
+	startControlServer(params)
+	go getKeyboardCommand(nil)
 	gameOfLife(params, nil)
-	//StopControlServer()
+	StopControlServer()
 }

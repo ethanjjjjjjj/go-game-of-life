@@ -24,7 +24,6 @@ func writePgmImage(p golParams, i ioChans) {
 	check(ioError)
 	defer file.Close()
 
-
 	_, _ = file.WriteString("P5\n")
 	//_, _ = file.WriteString("# PGM file writer by pnmmodules (https://github.com/owainkenwayucl/pnmmodules).\n")
 	_, _ = file.WriteString(strconv.Itoa(p.imageWidth))
@@ -41,7 +40,6 @@ func writePgmImage(p golParams, i ioChans) {
 	
 	alive := <-i.distributor.output	
 
-	fmt.Println(alive, "in PGM")
 	for _, c := range alive {
 		world[c.y][c.x] = 255
 	}
@@ -52,11 +50,12 @@ func writePgmImage(p golParams, i ioChans) {
 			check(ioError)
 		}
 	}
+
 	ioError = file.Sync()
 	check(ioError)
 
 	fmt.Println("File", filename, "output done!")
-	i.distributor.stop <- 1
+	i.distributor.stop.Done()
 }
 
 // readPgmImage opens a pgm file and sends its data as an array of bytes.

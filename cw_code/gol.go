@@ -145,10 +145,10 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	d.io.command <- ioCheckIdle
 	<-d.io.idle
 
-
 	// Return the coordinates of cells that are still alive.
 	fmt.Println(finalAlive)
 
+	// Telling pgm.go to start the write function
 	d.io.command <- ioOutput
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
 	d.io.output <- finalAlive
