@@ -7,8 +7,8 @@ import (
 )
 
 func printGrid(world [][]byte, p golParams) {
-	for y := 0; y < p.imageHeight; y++ {
-		for x := 0; x < p.imageWidth; x++ {
+	for y := 0; y < len(world); y++ {
+		for x := 0; x < len(world[y]); x++ {
 			if world[y][x] == 255 {
 				fmt.Print("1 ")
 			} else {
@@ -119,13 +119,15 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		if p.imageHeight == 1 {
 			worlds[0] = world
 		} else {
-			for i := 0; i < (p.imageHeight / p.threads); i++ {
+			for i := 0; i < (p.threads); i++ {
+				fmt.Println("i: ",i)
+				fmt.Println("p/imageHeight/p.threads: ",p.imageHeight/p.threads)
 				var worldslice [][]byte
 				if i == 0 {
 					worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
 					worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)]...)
 					worlds = append(worlds, worldslice)
-				} else if i == ((p.imageHeight / p.threads) - 1) {
+				} else if i == (p.threads -1) {
 
 					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
 					worldslice = append(worldslice, world[0:0]...)
@@ -134,10 +136,10 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)+1]...)
 					worlds = append(worlds, worldslice)
 				}
-				fmt.Println(worlds[i])
+				printGrid(worlds[i],p)
 			}
 		}
-		fmt.Println(worlds)
+		//fmt.Println(worlds)
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
