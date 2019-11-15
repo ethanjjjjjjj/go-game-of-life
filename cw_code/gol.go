@@ -43,29 +43,30 @@ func mod(a, b int) int {
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
-
-	if world[y][mod((x-1), p.imageWidth)] != 0 {
+	Height := len(world)
+	Width := len(world[0])
+	if world[y][mod((x-1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, p.imageHeight)][mod((x-1), p.imageWidth)] != 0 {
+	if world[mod(y+1, Height)][mod((x-1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, p.imageHeight)][x] != 0 {
+	if world[mod(y+1, Height)][x] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, p.imageHeight)][mod((x+1), p.imageWidth)] != 0 {
+	if world[mod(y+1, Height)][mod((x+1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[y][mod((x+1), p.imageWidth)] != 0 {
+	if world[y][mod((x+1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][mod((x+1), p.imageWidth)] != 0 {
+	if world[mod((y-1), Height)][mod((x+1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][x] != 0 {
+	if world[mod((y-1), Height)][x] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), p.imageHeight)][mod((x-1), p.imageWidth)] != 0 {
+	if world[mod((y-1), Height)][mod((x-1), Width)] != 0 {
 		num = num + 1
 	}
 	return num
@@ -162,6 +163,6 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	d.io.command <- ioOutput
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
 	d.io.output <- finalAlive
-	
+
 	alive <- finalAlive
 }
