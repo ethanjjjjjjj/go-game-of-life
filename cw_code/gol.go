@@ -6,6 +6,86 @@ import (
 	"strings"
 )
 
+func printGrid(world [][]byte, p golParams) {
+	for _, row := range world {
+		for _, cell := range row {
+			if cell == 255 {
+				fmt.Print("1 ")
+			} else {
+				fmt.Print("0 ")
+			}
+		}
+		fmt.Println(" ")
+	}
+	fmt.Println("    ")
+}
+
+//a different mod function because go doesn't like modding negatives
+func mod(a, b int) int {
+	if a < 0 {
+		for {
+			a = a + b
+			if a >= 0 {
+				break
+			}
+		}
+	} else if a >= b {
+		for {
+			a = a - b
+			if a < b {
+				break
+			}
+		}
+	}
+	return a
+}
+
+// returns number of alive neighbours to a cell
+func numNeighbours(x int, y int, world [][]byte, p golParams) int {
+	var num = 0
+	Height := len(world)
+	Width := len(world[0])
+	if world[y][mod((x-1), Width)] != 0 {
+		num = num + 1
+	}
+	if world[mod(y+1, Height)][mod((x-1), Width)] != 0 {
+		num = num + 1
+	}
+	if world[mod(y+1, Height)][x] != 0 {
+		num = num + 1
+	}
+	if world[mod(y+1, Height)][mod((x+1), Width)] != 0 {
+		num = num + 1
+	}
+	if world[y][mod((x+1), Width)] != 0 {
+		num = num + 1
+	}
+	if world[mod((y-1), Height)][mod((x+1), Width)] != 0 {
+		num = num + 1
+	}
+	if world[mod((y-1), Height)][x] != 0 {
+		num = num + 1
+	}
+	if world[mod((y-1), Height)][mod((x-1), Width)] != 0 {
+		num = num + 1
+	}
+	return num
+}
+
+//copies the world from one slice to another
+func copyworld(world [][]byte, p golParams) [][]byte {
+	worldnew := make([][]byte, p.imageHeight)
+	for i := range world {
+		worldnew[i] = make([]byte, p.imageWidth)
+	}
+	for y, row := range world {
+		for x, cell := range row {
+			worldnew[y][x] = cell
+		}
+	}
+	return worldnew
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
 
@@ -32,16 +112,23 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
+		worldnew := copyworld(world, p)
 		for y := 0; y < p.imageHeight; y++ {
 			for x := 0; x < p.imageWidth; x++ {
-				// Placeholder for the actual Game of Life logic: flips alive cells to dead and dead cells to alive.
-				//1 or less neighbours dies
-				//2 or 3 neighbours stays alive
-				//4 or more neighbours dies
-				//empty with 3 neighbours becomes alive
-				world[y][x] = world[y][x] ^ 0xFF
+				worldnew[y][x] = world[y][x]
+				neighbours := numNeighbours(x, y, world, p)
+				if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
+					worldnew[y][x] = 0
+				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
+					//do nothing
+				} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
+					worldnew[y][x] = 0
+				} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
+					worldnew[y][x] = 255
+				}
 			}
 		}
+		world = copyworld(worldnew, p)
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
@@ -60,5 +147,12 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	<-d.io.idle
 
 	// Return the coordinates of cells that are still alive.
+	fmt.Println(finalAlive)
+
+	// Telling pgm.go to start the write function
+	d.io.command <- ioOutput
+	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
+	d.io.output <- finalAlive
+
 	alive <- finalAlive
 }
