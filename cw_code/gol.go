@@ -7,9 +7,9 @@ import (
 )
 
 func printGrid(world [][]byte, p golParams) {
-	for y := 0; y < p.imageHeight; y++ {
-		for x := 0; x < p.imageWidth; x++ {
-			if world[y][x] == 255 {
+	for _, row := range world {
+		for _, cell := range row {
+			if cell == 255 {
 				fmt.Print("1 ")
 			} else {
 				fmt.Print("0 ")
