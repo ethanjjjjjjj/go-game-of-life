@@ -87,22 +87,22 @@ func copyworld(world [][]byte, p golParams) [][]byte {
 }
 func golWorker(p golParams, worldslice [][]byte) {
 	worldnew = copyworld(worldslice)
-	for y:=1;y<len(worldslice)-1;y++{
-		for x=0;x<len(worldslice[y]);y++{
+	for y := 1; y < len(worldslice)-1; y++ {
+		for x = 0; x < len(worldslice[y]); y++ {
 			worldnew[y][x] = world[y][x]
-				neighbours := numNeighbours(x, y, world, p)
-				if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
-					worldnew[y][x] = 0
-				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
-					//do nothing
-				} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
-					worldnew[y][x] = 0
-				} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
-					worldnew[y][x] = 255
-				}
+			neighbours := numNeighbours(x, y, world, p)
+			if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
+				worldnew[y][x] = 0
+			} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
+				//do nothing
+			} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
+				worldnew[y][x] = 0
+			} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
+				worldnew[y][x] = 255
+			}
 		}
 	}
-	worldslice=copyworld(worldnew)
+	worldslice = copyworld(worldnew)
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -137,14 +137,14 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			worlds[0] = world
 		} else {
 			for i := 0; i < (p.threads); i++ {
-				fmt.Println("i: ",i)
-				fmt.Println("p/imageHeight/p.threads: ",p.imageHeight/p.threads)
+				fmt.Println("i: ", i)
+				fmt.Println("p/imageHeight/p.threads: ", p.imageHeight/p.threads)
 				var worldslice [][]byte
 				if i == 0 {
 					worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
 					worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)]...)
 					worlds = append(worlds, worldslice)
-				} else if i == (p.threads -1) {
+				} else if i == (p.threads - 1) {
 
 					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
 					worldslice = append(worldslice, world[0:0]...)
@@ -153,7 +153,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)+1]...)
 					worlds = append(worlds, worldslice)
 				}
-				printGrid(worlds[i],p)
+				printGrid(worlds[i], p)
 			}
 		}
 		//fmt.Println(worlds)
