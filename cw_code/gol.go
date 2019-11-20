@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+type worldpart struct {
+	index      int
+	worldslice [][]byte
+}
+
 func printGrid(world [][]byte, p golParams) {
 	for _, row := range world {
 		for _, cell := range row {
@@ -73,10 +78,10 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 }
 
 //copies the world from one slice to another
-func copyworld(world [][]byte, p golParams) [][]byte {
-	worldnew := make([][]byte, p.imageHeight)
+func copyworld(world [][]byte) [][]byte {
+	worldnew := make([][]byte, len(world))
 	for i := range world {
-		worldnew[i] = make([]byte, p.imageWidth)
+		worldnew[i] = make([]byte, len(world[i]))
 	}
 	for y, row := range world {
 		for x, cell := range row {
@@ -85,24 +90,25 @@ func copyworld(world [][]byte, p golParams) [][]byte {
 	}
 	return worldnew
 }
-func golWorker(p golParams, worldslice [][]byte) {
-	worldnew = copyworld(worldslice)
+func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan worldpart) {
+	worldnew := copyworld(worldslice)
 	for y := 1; y < len(worldslice)-1; y++ {
-		for x = 0; x < len(worldslice[y]); y++ {
-			worldnew[y][x] = world[y][x]
-			neighbours := numNeighbours(x, y, world, p)
-			if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
+		for x := 0; x < len(worldslice[y]); x++ {
+			worldnew[y][x] = worldslice[y][x]
+			neighbours := numNeighbours(x, y, worldslice, p)
+			if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
 				worldnew[y][x] = 0
-			} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
+			} else if (neighbours == 2 || neighbours == 3) && worldslice[y][x] == 255 { //2 or 3 neighbours stays alive
 				//do nothing
-			} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
+			} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
 				worldnew[y][x] = 0
-			} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
+			} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
 				worldnew[y][x] = 255
 			}
 		}
 	}
-	worldslice = copyworld(worldnew)
+	part := worldpart{index: index, worldslice: worldnew}
+	slicereturns <- part
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -133,7 +139,8 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	for turns := 0; turns < p.turns; turns++ {
 		//splitworld
 		var worlds [][][]byte
-		if p.imageHeight == 1 {
+		//printGrid(world, p)
+		if p.imageHeight == 1 || p.imageHeight < p.threads {
 			worlds[0] = world
 		} else {
 			for i := 0; i < (p.threads); i++ {
@@ -142,21 +149,42 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				var worldslice [][]byte
 				if i == 0 {
 					worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
-					worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)]...)
+					worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)+1]...)
 					worlds = append(worlds, worldslice)
 				} else if i == (p.threads - 1) {
 
 					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
-					worldslice = append(worldslice, world[0:0]...)
+					worldslice = append(worldslice, world[0:1]...)
 					worlds = append(worlds, worldslice)
 				} else {
 					worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)+1]...)
 					worlds = append(worlds, worldslice)
 				}
-				printGrid(worlds[i], p)
+				//printGrid(worlds[i], p)
 			}
 		}
-		//fmt.Println(worlds)
+		slicereturns := make(chan worldpart, p.threads)
+		for x, worldslice := range worlds {
+
+			go golWorker(p, worldslice, x, slicereturns)
+		}
+		returns := make([][][]byte, p.threads)
+		for i := 0; i < p.threads; i++ {
+
+			something := <-slicereturns
+			returns[something.index] = something.worldslice
+		}
+
+		var worldnew [][]byte
+		fmt.Println("length of returns: ", len(returns))
+		for _, part := range returns {
+			printGrid(part, p)
+			worldnew = append(worldnew, part[1:len(part)-1]...)
+		}
+		fmt.Println("whole world: ")
+		printGrid(worldnew, p)
+		world = copyworld(worldnew)
+		//printGrid(world, p)
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
