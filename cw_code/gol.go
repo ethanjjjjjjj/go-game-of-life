@@ -85,7 +85,23 @@ func copyworld(world [][]byte, p golParams) [][]byte {
 	return worldnew
 }
 func golWorker(p golParams, worldslice [][]byte) {
-
+	worldnew = copyworld(worldslice)
+	for y:=1;y<len(worldslice)-1;y++{
+		for x=0;x<len(worldslice[y]);y++{
+			worldnew[y][x] = world[y][x]
+				neighbours := numNeighbours(x, y, world, p)
+				if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
+					worldnew[y][x] = 0
+				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
+					//do nothing
+				} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
+					worldnew[y][x] = 0
+				} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
+					worldnew[y][x] = 255
+				}
+		}
+	}
+	worldslice=copyworld(worldnew)
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
