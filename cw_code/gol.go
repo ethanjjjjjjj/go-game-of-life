@@ -144,8 +144,8 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			worlds[0] = world
 		} else {
 			for i := 0; i < (p.threads); i++ {
-				fmt.Println("i: ", i)
-				fmt.Println("p/imageHeight/p.threads: ", p.imageHeight/p.threads)
+				//fmt.Println("i: ", i)
+				//fmt.Println("p/imageHeight/p.threads: ", p.imageHeight/p.threads)
 				var worldslice [][]byte
 				if i == 0 {
 					worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
@@ -176,13 +176,13 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		}
 
 		var worldnew [][]byte
-		fmt.Println("length of returns: ", len(returns))
+		//fmt.Println("length of returns: ", len(returns))
 		for _, part := range returns {
-			printGrid(part, p)
+			//printGrid(part, p)
 			worldnew = append(worldnew, part[1:len(part)-1]...)
 		}
-		fmt.Println("whole world: ")
-		printGrid(worldnew, p)
+		//fmt.Println("whole world: ")
+		//printGrid(worldnew, p)
 		world = copyworld(worldnew)
 		//printGrid(world, p)
 	}
