@@ -7,9 +7,9 @@ import (
 )
 
 func printGrid(world [][]byte, p golParams) {
-	for y := 0; y < len(world); y++ {
-		for x := 0; x < len(world[y]); x++ {
-			if world[y][x] == 255 {
+	for _, row := range world {
+		for _, cell := range row {
+			if cell == 255 {
 				fmt.Print("1 ")
 			} else {
 				fmt.Print("0 ")
@@ -43,29 +43,30 @@ func mod(a, b int) int {
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
-
-	if world[y][mod((x-1), len(world[y]) )] != 0 {
+	Height := len(world)
+	Width := len(world[0])
+	if world[y][mod((x-1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, len(world))][mod((x-1), len(world[y]))] != 0 {
+	if world[mod(y+1, Height)][mod((x-1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, len(world))][x] != 0 {
+	if world[mod(y+1, Height)][x] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, len(world))][mod((x+1), len(world[y]))] != 0 {
+	if world[mod(y+1, Height)][mod((x+1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[y][mod((x+1), len(world[y]))] != 0 {
+	if world[y][mod((x+1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), len(world))][mod((x+1), len(world[y]))] != 0 {
+	if world[mod((y-1), Height)][mod((x+1), Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), len(world))][x] != 0 {
+	if world[mod((y-1), Height)][x] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), len(world))][mod((x-1), len(world[y]))] != 0 {
+	if world[mod((y-1), Height)][mod((x-1), Width)] != 0 {
 		num = num + 1
 	}
 	return num
@@ -175,5 +176,11 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Return the coordinates of cells that are still alive.
 	fmt.Println(finalAlive)
+
+	// Telling pgm.go to start the write function
+	d.io.command <- ioOutput
+	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
+	d.io.output <- finalAlive
+
 	alive <- finalAlive
 }
