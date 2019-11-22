@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,8 +16,8 @@ func check(e error) {
 	}
 }
 
-func writePgmTurn(p golParams, alivecells []cell) {
-	fmt.Println("writing ya file m8")
+func writePgmTurn(p golParams, alivecells []cell, stop *sync.WaitGroup) {
+	//fmt.Println("writing ya file m8")
 	//fmt.Println("Am I running?")
 	_ = os.Mkdir("out", os.ModePerm)
 
@@ -54,8 +55,9 @@ func writePgmTurn(p golParams, alivecells []cell) {
 
 	ioError = file.Sync()
 	check(ioError)
+	stop.Done()
+	//fmt.Println("File", filename, "output done!")
 
-	fmt.Println("File", filename, "output done!")
 }
 
 // writePgmImage receives an array of bytes and writes it to a pgm file.

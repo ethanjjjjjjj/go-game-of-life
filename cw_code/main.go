@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"sync"
 )
 
@@ -78,36 +77,8 @@ type ioChans struct {
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
 	for {
 		currentAlive := <-ioChans.distributor.output
-
-		select {
-		case key := <-keyChan: // Put 2 in the channel unless it is full
-			switch key {
-			case rune(115):
-				go writePgmTurn(p, currentAlive)
-				fmt.Println(currentAlive)
-
-			case 'p':
-				fmt.Println("P")
-			}
-		default:
-
-		}
-
-		//fmt.Println(currentAlive)
-		//keyChan.
-
-		/*if len(keyChan) == 1 {
-			key:=<-keyChan
-			switch key {
-			case rune(115):
-
-				fmt.Println(currentAlive)
-			case 'p':
-				fmt.Println("P")
-			}
-		} else {
-
-		}*/
+		dChans.io.stop.Add(1)
+		go writePgmTurn(p, currentAlive, dChans.io.stop)
 	}
 }
 
@@ -189,7 +160,8 @@ func main() {
 
 	flag.Parse()
 
-	params.turns = 10000000
+	params.turns = 1000
+
 
 	startControlServer(params)
 
