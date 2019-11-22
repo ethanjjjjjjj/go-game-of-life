@@ -78,36 +78,18 @@ type ioChans struct {
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
 	for {
 		currentAlive := <-ioChans.distributor.output
-
 		select {
-		case key := <-keyChan: // Put 2 in the channel unless it is full
+		case key := <-keyChan: 
 			switch key {
-			case rune(115):
+			case rune(115): //character code of s
+			//runs a go routine each time a new file is to be made
 				go writePgmTurn(p, currentAlive)
-				fmt.Println(currentAlive)
-
 			case 'p':
 				fmt.Println("P")
 			}
 		default:
-
+			//do nothing
 		}
-
-		//fmt.Println(currentAlive)
-		//keyChan.
-
-		/*if len(keyChan) == 1 {
-			key:=<-keyChan
-			switch key {
-			case rune(115):
-
-				fmt.Println(currentAlive)
-			case 'p':
-				fmt.Println("P")
-			}
-		} else {
-
-		}*/
 	}
 }
 
@@ -189,7 +171,7 @@ func main() {
 
 	flag.Parse()
 
-	params.turns = 10000000
+	params.turns = 10000
 
 	startControlServer(params)
 
