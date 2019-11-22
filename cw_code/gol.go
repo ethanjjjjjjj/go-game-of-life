@@ -92,14 +92,13 @@ func aliveCells(p golParams, world [][]byte) []cell {
 }
 
 func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan worldpart) {
+
 	worldnew := make([][]byte, len(worldslice))
 	for i := 0; i < len(worldslice); i++ {
 		worldnew[i] = make([]byte, p.imageWidth)
 		copy(worldnew[i], worldslice[i])
 	}
 
-	//copy(worldnew, worldslice)
-	//worldnew := copyworld(worldslice)
 	for y := 1; y < len(worldslice)-1; y++ {
 		for x := 0; x < len(worldslice[y]); x++ {
 			worldnew[y][x] = worldslice[y][x]
@@ -201,5 +200,4 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	d.io.aliveOutput <- finalAlive
 
 	alive <- finalAlive
-
 }

@@ -21,7 +21,8 @@ func writePgmTurn(p golParams, alivecells []cell, stop *sync.WaitGroup) {
 	//fmt.Println("Am I running?")
 	_ = os.Mkdir("out", os.ModePerm)
 
-	filename := strconv.Itoa(p.imageWidth) + " x " + strconv.Itoa(p.imageHeight) + " Turn: " + time.Now().String()
+	//appends current time to filename so they don't overwrite each other
+	filename := strconv.Itoa(p.imageWidth) + "x" + strconv.Itoa(p.imageHeight) + "-" + time.Now().Format("15:04:05.000000")
 	file, ioError := os.Create("out/" + filename + ".pgm")
 	check(ioError)
 	defer file.Close()
@@ -63,7 +64,6 @@ func writePgmTurn(p golParams, alivecells []cell, stop *sync.WaitGroup) {
 // writePgmImage receives an array of bytes and writes it to a pgm file.
 // Note that this function is incomplete. Use the commented-out for loop to receive data from the distributor.
 func writePgmImage(p golParams, i ioChans) {
-	fmt.Println("Am I running?")
 	_ = os.Mkdir("out", os.ModePerm)
 
 	filename := <-i.distributor.filename
