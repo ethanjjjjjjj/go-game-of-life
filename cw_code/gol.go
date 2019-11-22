@@ -77,6 +77,20 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	return num
 }
 
+func aliveCells(p golParams, world [][]byte)[]cell{
+	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
+	var alive []cell
+	// Go through the world and append the cells that are still alive.
+	for y := 0; y < p.imageHeight; y++ {
+		for x := 0; x < p.imageWidth; x++ {
+			if world[y][x] != 0 {
+				alive = append(alive, cell{x: x, y: y})
+			}
+		}
+	}
+	return alive
+}
+
 func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan worldpart) {
 	worldnew := make([][]byte, len(worldslice))
 	for i := 0; i < len(worldslice); i++ {
@@ -162,25 +176,18 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			}
 		}
 
-		/*for _, part := range returns {
-			//worldnew = append(worldnew, part[1:len(part)-1]...)
-		}*/
+		var currentAlive = aliveCells(p,world)
+		d.io.output <- currentAlive
+
 		for i := 0; i < len(world); i++ {
 			world[i] = make([]byte, p.imageWidth)
 			copy(world[i], worldnew[i])
 		}
+
 	}
 
-	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
-	var finalAlive []cell
-	// Go through the world and append the cells that are still alive.
-	for y := 0; y < p.imageHeight; y++ {
-		for x := 0; x < p.imageWidth; x++ {
-			if world[y][x] != 0 {
-				finalAlive = append(finalAlive, cell{x: x, y: y})
-			}
-		}
-	}
+	var finalAlive = aliveCells(p,world)
+
 
 	// Make sure that the Io has finished any output before exiting.
 	d.io.command <- ioCheckIdle
@@ -195,4 +202,5 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	d.io.output <- finalAlive
 
 	alive <- finalAlive
+
 }

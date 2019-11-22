@@ -37,8 +37,8 @@ func writePgmImage(p golParams, i ioChans) {
 	for i := range world {
 		world[i] = make([]byte, p.imageWidth)
 	}
-	
-	alive := <-i.distributor.output	
+
+	alive := <-i.distributor.output
 
 	for _, c := range alive {
 		world[c.y][c.x] = 255

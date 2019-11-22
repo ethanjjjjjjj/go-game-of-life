@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"sync"
 )
 
@@ -43,6 +44,8 @@ type distributorToIo struct {
 
 	output chan<- []cell
 	stop   *sync.WaitGroup
+
+	dCommand chan int
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -56,6 +59,8 @@ type ioToDistributor struct {
 
 	output <-chan []cell
 	stop   *sync.WaitGroup
+
+	dCommand chan int
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -66,6 +71,21 @@ type distributorChans struct {
 // ioChans stores all the chans that the io goroutine will use.
 type ioChans struct {
 	distributor ioToDistributor
+}
+
+func keyboardInputs(keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
+	for {
+		select {
+		case key := <-keyChan:
+			switch key {
+			case rune(115):
+				currentAlive := <-ioChans.distributor.output
+				fmt.Println(currentAlive)
+			case 'p':
+				fmt.Println("P")
+			}
+		}
+	}
 }
 
 // gameOfLife is the function called by the testing framework.
@@ -100,9 +120,15 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
 
+	dCommand := make(chan int)
+	dChans.io.dCommand = dCommand
+	ioChans.distributor.dCommand = dCommand
+
 	aliveCells := make(chan []cell)
 
 	go distributor(p, dChans, aliveCells)
+	go keyboardInputs(keyChan, dChans, ioChans)
+
 	stop.Add(1)
 	go pgmIo(p, ioChans)
 
@@ -125,21 +151,23 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		512,
+		16,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		512,
+		16,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
 
-	params.turns = 100
+	params.turns = 10
 
 	startControlServer(params)
-	go getKeyboardCommand(nil)
-	gameOfLife(params, nil)
+
+	keyChannel := make(chan rune)
+	go getKeyboardCommand(keyChannel)
+	gameOfLife(params, keyChannel)
 	StopControlServer()
 }
