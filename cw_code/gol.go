@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+type worldpart struct {
+	index      int
+	worldslice [][]byte
+}
+
 func printGrid(world [][]byte, p golParams) {
 	for _, row := range world {
 		for _, cell := range row {
@@ -72,18 +77,30 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	return num
 }
 
-//copies the world from one slice to another
-func copyworld(world [][]byte, p golParams) [][]byte {
-	worldnew := make([][]byte, p.imageHeight)
-	for i := range world {
+func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan worldpart) {
+	worldnew := make([][]byte, len(worldslice))
+	for i := 0; i < len(worldslice); i++ {
 		worldnew[i] = make([]byte, p.imageWidth)
+		copy(worldnew[i], worldslice[i])
 	}
-	for y, row := range world {
-		for x, cell := range row {
-			worldnew[y][x] = cell
+
+	//copy(worldnew, worldslice)
+	//worldnew := copyworld(worldslice)
+	for y := 1; y < len(worldslice)-1; y++ {
+		for x := 0; x < len(worldslice[y]); x++ {
+			worldnew[y][x] = worldslice[y][x]
+			neighbours := numNeighbours(x, y, worldslice, p)
+			if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
+				worldnew[y][x] = 0
+			} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
+				worldnew[y][x] = 0
+			} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
+				worldnew[y][x] = 255
+			}
 		}
 	}
-	return worldnew
+	part := worldpart{index: index, worldslice: worldnew}
+	slicereturns <- part
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -112,23 +129,46 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
-		worldnew := copyworld(world, p)
-		for y := 0; y < p.imageHeight; y++ {
-			for x := 0; x < p.imageWidth; x++ {
-				worldnew[y][x] = world[y][x]
-				neighbours := numNeighbours(x, y, world, p)
-				if neighbours < 2 && world[y][x] == 255 { // 1 or fewer neighbours dies
-					worldnew[y][x] = 0
-				} else if (neighbours == 2 || neighbours == 3) && world[y][x] == 255 { //2 or 3 neighbours stays alive
-					//do nothing
-				} else if neighbours > 3 && world[y][x] == 255 { //4 or more neighbours dies
-					worldnew[y][x] = 0
-				} else if world[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
-					worldnew[y][x] = 255
-				}
+		//splitworld
+		slicereturns := make(chan worldpart, p.threads)
+		for i := 0; i < (p.threads); i++ {
+			var worldslice [][]byte
+			if i == 0 {
+				worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
+				worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)+1]...)
+				go golWorker(p, worldslice, i, slicereturns)
+			} else if i == (p.threads - 1) {
+				worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
+				worldslice = append(worldslice, world[0:1]...)
+				go golWorker(p, worldslice, i, slicereturns)
+			} else {
+				go golWorker(p, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)+1], i, slicereturns)
+
+			}
+
+		}
+
+		returns := make([][][]byte, p.threads)
+		worldnew := make([][]byte, p.imageHeight)
+		for i := range world {
+			worldnew[i] = make([]byte, p.imageWidth)
+		}
+		for i := 0; i < p.threads; i++ {
+			something := <-slicereturns
+			returns[something.index] = something.worldslice
+
+			for j := 1; j < len(something.worldslice)-1; j++ {
+				worldnew[something.index*(p.imageHeight/p.threads)+j-1] = something.worldslice[j]
 			}
 		}
-		world = copyworld(worldnew, p)
+
+		/*for _, part := range returns {
+			//worldnew = append(worldnew, part[1:len(part)-1]...)
+		}*/
+		for i := 0; i < len(world); i++ {
+			world[i] = make([]byte, p.imageWidth)
+			copy(world[i], worldnew[i])
+		}
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
