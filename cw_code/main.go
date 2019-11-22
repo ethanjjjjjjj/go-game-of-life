@@ -81,7 +81,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 		select {
 		case key := <-keyChan: 
 			switch key {
-			case rune(115): //character code of s
+			case 's':
 			//runs a go routine each time a new file is to be made
 				go writePgmTurn(p, currentAlive)
 			case 'p':
