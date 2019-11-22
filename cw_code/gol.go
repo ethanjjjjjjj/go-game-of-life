@@ -77,7 +77,7 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	return num
 }
 
-func aliveCells(p golParams, world [][]byte)[]cell{
+func aliveCells(p golParams, world [][]byte) []cell {
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
 	var alive []cell
 	// Go through the world and append the cells that are still alive.
@@ -176,7 +176,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			}
 		}
 
-		var currentAlive = aliveCells(p,world)
+		var currentAlive = aliveCells(p, world)
 		d.io.output <- currentAlive
 
 		for i := 0; i < len(world); i++ {
@@ -186,8 +186,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	}
 
-	var finalAlive = aliveCells(p,world)
-
+	var finalAlive = aliveCells(p, world)
 
 	// Make sure that the Io has finished any output before exiting.
 	d.io.command <- ioCheckIdle
@@ -199,7 +198,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	// Telling pgm.go to start the write function
 	d.io.command <- ioOutput
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
-	d.io.output <- finalAlive
+	d.io.aliveOutput <- finalAlive
 
 	alive <- finalAlive
 

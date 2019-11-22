@@ -45,7 +45,8 @@ type distributorToIo struct {
 	output chan<- []cell
 	stop   *sync.WaitGroup
 
-	dCommand chan int
+	dCommand    chan int
+	aliveOutput chan []cell
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -60,7 +61,8 @@ type ioToDistributor struct {
 	output <-chan []cell
 	stop   *sync.WaitGroup
 
-	dCommand chan int
+	dCommand    chan int
+	aliveOutput chan []cell
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -73,18 +75,39 @@ type ioChans struct {
 	distributor ioToDistributor
 }
 
-func keyboardInputs(keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
+func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
 	for {
+		currentAlive := <-ioChans.distributor.output
+
 		select {
-		case key := <-keyChan:
+		case key := <-keyChan: // Put 2 in the channel unless it is full
 			switch key {
 			case rune(115):
-				currentAlive := <-ioChans.distributor.output
+				go writePgmTurn(p, currentAlive)
+				fmt.Println(currentAlive)
+
+			case 'p':
+				fmt.Println("P")
+			}
+		default:
+
+		}
+
+		//fmt.Println(currentAlive)
+		//keyChan.
+
+		/*if len(keyChan) == 1 {
+			key:=<-keyChan
+			switch key {
+			case rune(115):
+
 				fmt.Println(currentAlive)
 			case 'p':
 				fmt.Println("P")
 			}
-		}
+		} else {
+
+		}*/
 	}
 }
 
@@ -124,10 +147,14 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.dCommand = dCommand
 	ioChans.distributor.dCommand = dCommand
 
+	aliveOutput := make(chan []cell)
+	dChans.io.aliveOutput = aliveOutput
+	ioChans.distributor.aliveOutput = aliveOutput
+
 	aliveCells := make(chan []cell)
 
 	go distributor(p, dChans, aliveCells)
-	go keyboardInputs(keyChan, dChans, ioChans)
+	go keyboardInputs(p, keyChan, dChans, ioChans)
 
 	stop.Add(1)
 	go pgmIo(p, ioChans)
@@ -151,18 +178,18 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		16,
+		512,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		16,
+		512,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
 
-	params.turns = 10
+	params.turns = 10000000
 
 	startControlServer(params)
 

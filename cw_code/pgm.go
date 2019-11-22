@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func check(e error) {
@@ -14,9 +15,53 @@ func check(e error) {
 	}
 }
 
+func writePgmTurn(p golParams, alivecells []cell) {
+	fmt.Println("writing ya file m8")
+	//fmt.Println("Am I running?")
+	_ = os.Mkdir("out", os.ModePerm)
+
+	filename := strconv.Itoa(p.imageWidth) + " x " + strconv.Itoa(p.imageHeight) + " Turn: " + time.Now().String()
+	file, ioError := os.Create("out/" + filename + ".pgm")
+	check(ioError)
+	defer file.Close()
+
+	_, _ = file.WriteString("P5\n")
+	//_, _ = file.WriteString("# PGM file writer by pnmmodules (https://github.com/owainkenwayucl/pnmmodules).\n")
+	_, _ = file.WriteString(strconv.Itoa(p.imageWidth))
+	_, _ = file.WriteString(" ")
+	_, _ = file.WriteString(strconv.Itoa(p.imageHeight))
+	_, _ = file.WriteString("\n")
+	_, _ = file.WriteString(strconv.Itoa(255))
+	_, _ = file.WriteString("\n")
+
+	world := make([][]byte, p.imageHeight)
+	for i := range world {
+		world[i] = make([]byte, p.imageWidth)
+	}
+
+	alive := alivecells
+
+	for _, c := range alive {
+		world[c.y][c.x] = 255
+	}
+
+	for y := 0; y < p.imageHeight; y++ {
+		for x := 0; x < p.imageWidth; x++ {
+			_, ioError = file.Write([]byte{world[y][x]})
+			check(ioError)
+		}
+	}
+
+	ioError = file.Sync()
+	check(ioError)
+
+	fmt.Println("File", filename, "output done!")
+}
+
 // writePgmImage receives an array of bytes and writes it to a pgm file.
 // Note that this function is incomplete. Use the commented-out for loop to receive data from the distributor.
 func writePgmImage(p golParams, i ioChans) {
+	fmt.Println("Am I running?")
 	_ = os.Mkdir("out", os.ModePerm)
 
 	filename := <-i.distributor.filename
@@ -38,7 +83,7 @@ func writePgmImage(p golParams, i ioChans) {
 		world[i] = make([]byte, p.imageWidth)
 	}
 
-	alive := <-i.distributor.output
+	alive := <-i.distributor.aliveOutput
 
 	for _, c := range alive {
 		world[c.y][c.x] = 255
