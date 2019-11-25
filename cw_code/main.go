@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"sync"
 )
 
@@ -117,6 +118,19 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 						break
 					}
 				}
+			case 'q':
+				world := make([][]byte, p.imageHeight)
+				for i := range world {
+					world[i] = make([]byte, p.imageWidth)
+				}
+
+				for _, cell := range currentAlive {
+					world[cell.y][cell.x] = 255
+				}
+				fmt.Println("Final state of the world:")
+				printGrid(world, p)
+
+				os.Exit(0)
 			}
 		default:
 			//do nothing
