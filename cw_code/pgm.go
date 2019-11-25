@@ -6,12 +6,56 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func check(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+//this writes pgm files for within a turn when s is pressed
+func writePgmTurn(p golParams, alivecells []cell) {
+	_ = os.Mkdir("out", os.ModePerm)
+
+	//appends current time to filename so they don't overwrite each other
+	filename := strconv.Itoa(p.imageWidth) + "x" + strconv.Itoa(p.imageHeight) + "-" + time.Now().Format("15:04:05.000000")
+	file, ioError := os.Create("out/" + filename + ".pgm")
+	check(ioError)
+	defer file.Close()
+
+	_, _ = file.WriteString("P5\n")
+	//_, _ = file.WriteString("# PGM file writer by pnmmodules (https://github.com/owainkenwayucl/pnmmodules).\n")
+	_, _ = file.WriteString(strconv.Itoa(p.imageWidth))
+	_, _ = file.WriteString(" ")
+	_, _ = file.WriteString(strconv.Itoa(p.imageHeight))
+	_, _ = file.WriteString("\n")
+	_, _ = file.WriteString(strconv.Itoa(255))
+	_, _ = file.WriteString("\n")
+
+	world := make([][]byte, p.imageHeight)
+	for i := range world {
+		world[i] = make([]byte, p.imageWidth)
+	}
+
+	alive := alivecells
+
+	for _, c := range alive {
+		world[c.y][c.x] = 255
+	}
+
+	for y := 0; y < p.imageHeight; y++ {
+		for x := 0; x < p.imageWidth; x++ {
+			_, ioError = file.Write([]byte{world[y][x]})
+			check(ioError)
+		}
+	}
+
+	ioError = file.Sync()
+	check(ioError)
+
+	fmt.Println("File", filename, "output done!")
 }
 
 // writePgmImage receives an array of bytes and writes it to a pgm file.
@@ -37,8 +81,8 @@ func writePgmImage(p golParams, i ioChans) {
 	for i := range world {
 		world[i] = make([]byte, p.imageWidth)
 	}
-	
-	alive := <-i.distributor.output	
+
+	alive := <-i.distributor.aliveOutput
 
 	for _, c := range alive {
 		world[c.y][c.x] = 255

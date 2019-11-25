@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 )
@@ -42,6 +44,8 @@ type distributorToIo struct {
 	filename chan<- string
 	inputVal <-chan uint8
 
+	aliveOutput chan []cell
+	pause *sync.WaitGroup
 	output         chan<- []cell
 	periodicOutput chan byte
 	stop           *sync.WaitGroup
@@ -57,8 +61,7 @@ type ioToDistributor struct {
 	inputVal chan<- uint8
 
 	output <-chan []cell
-
-	stop *sync.WaitGroup
+	aliveOutput chan []cell
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -69,6 +72,66 @@ type distributorChans struct {
 // ioChans stores all the chans that the io goroutine will use.
 type ioChans struct {
 	distributor ioToDistributor
+}
+
+func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
+	paused := false
+	for {
+		currentAlive := <-ioChans.distributor.output
+		select {
+		case key := <-keyChan:
+			switch key {
+			case 's':
+				//runs a go routine each time a new file is to be made
+				go writePgmTurn(p, currentAlive)
+			case 'p':
+				dChans.io.pause.Add(1)
+
+				world := make([][]byte, p.imageHeight)
+				for i := range world {
+					world[i] = make([]byte, p.imageWidth)
+				}
+
+				for _, cell := range currentAlive {
+					world[cell.y][cell.x] = 255
+				}
+				fmt.Println("Current state of the world:")
+				printGrid(world, p)
+
+				for {
+					select {
+					case key := <-keyChan:
+						switch key {
+						case 'p':
+							dChans.io.pause.Done()
+							fmt.Println("Continuing")
+							paused = true
+							break
+						}
+					}
+					if paused {
+						paused = false
+						break
+					}
+				}
+			case 'q':
+				world := make([][]byte, p.imageHeight)
+				for i := range world {
+					world[i] = make([]byte, p.imageWidth)
+				}
+
+				for _, cell := range currentAlive {
+					world[cell.y][cell.x] = 255
+				}
+				fmt.Println("Final state of the world:")
+				printGrid(world, p)
+
+				os.Exit(0)
+			}
+		default:
+			//do nothing
+		}
+	}
 }
 
 // gameOfLife is the function called by the testing framework.
@@ -106,10 +169,22 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
 
+	dCommand := make(chan int)
+	dChans.io.dCommand = dCommand
+	ioChans.distributor.dCommand = dCommand
+
+	aliveOutput := make(chan []cell)
+	dChans.io.aliveOutput = aliveOutput
+	ioChans.distributor.aliveOutput = aliveOutput
+
+	var pause sync.WaitGroup
+	dChans.io.pause = &pause
+
 	aliveCells := make(chan []cell)
 	go periodic(dChans)
 	go distributor(p, dChans, aliveCells)
 
+	go keyboardInputs(p, keyChan, dChans, ioChans)
 	stop.Add(1)
 	go pgmIo(p, ioChans)
 
@@ -141,13 +216,13 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		512,
+		16,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		512,
+		16,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
@@ -155,7 +230,9 @@ func main() {
 	params.turns = 10000000
 
 	startControlServer(params)
-	go getKeyboardCommand(nil)
-	gameOfLife(params, nil)
+
+	keyChannel := make(chan rune)
+	go getKeyboardCommand(keyChannel)
+	gameOfLife(params, keyChannel)
 	StopControlServer()
 }
