@@ -154,7 +154,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)+1]...)
 				go golWorker(p, worldslice, i, slicereturns)
 			} else if i == (p.threads - 1) {
-				worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
+				worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:len(world)]...)
 				worldslice = append(worldslice, world[0:1]...)
 				go golWorker(p, worldslice, i, slicereturns)
 			} else {
