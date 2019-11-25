@@ -169,6 +169,21 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			world[i] = make([]byte, p.imageWidth)
 			copy(world[i], worldnew[i])
 		}
+
+		select {
+		case <-d.io.periodicOutput:
+			var currentAlive = 0
+			for y := 0; y < p.imageHeight; y++ {
+				for x := 0; x < p.imageWidth; x++ {
+					if world[y][x] != 0 {
+						currentAlive++
+					}
+				}
+			}
+			fmt.Println("Alive cells: ", currentAlive)
+		default:
+			//do nothing
+		}
 	}
 
 	// Create an empty slice to store coordinates of cells that are still alive after p.turns are done.
@@ -189,10 +204,11 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	// Return the coordinates of cells that are still alive.
 	fmt.Println(finalAlive)
 
+	// prints the grid every time a signal is received from the timer goroutine
+
 	// Telling pgm.go to start the write function
 	d.io.command <- ioOutput
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
 	d.io.output <- finalAlive
-
 	alive <- finalAlive
 }
