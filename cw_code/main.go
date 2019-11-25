@@ -44,8 +44,8 @@ type distributorToIo struct {
 	filename chan<- string
 	inputVal <-chan uint8
 
-	aliveOutput chan []cell
-	pause *sync.WaitGroup
+	aliveOutput    chan []cell
+	pause          *sync.WaitGroup
 	output         chan<- []cell
 	periodicOutput chan byte
 	stop           *sync.WaitGroup
@@ -60,8 +60,9 @@ type ioToDistributor struct {
 	filename <-chan string
 	inputVal chan<- uint8
 
-	output <-chan []cell
+	output      <-chan []cell
 	aliveOutput chan []cell
+	stop        *sync.WaitGroup
 }
 
 // distributorChans stores all the chans that the distributor goroutine will use.
@@ -169,9 +170,9 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
 
-	dCommand := make(chan int)
-	dChans.io.dCommand = dCommand
-	ioChans.distributor.dCommand = dCommand
+	//dCommand := make(chan int)
+	//dChans.io.dCommand = dCommand
+	//ioChans.distributor.dCommand = dCommand
 
 	aliveOutput := make(chan []cell)
 	dChans.io.aliveOutput = aliveOutput

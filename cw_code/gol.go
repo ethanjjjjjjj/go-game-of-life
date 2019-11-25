@@ -202,8 +202,6 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		}
 	}
 
-	}
-
 	var finalAlive = aliveCells(p, world)
 
 	// Make sure that the Io has finished any output before exiting.
