@@ -47,6 +47,8 @@ type distributorToIo struct {
 
 	dCommand    chan int
 	aliveOutput chan []cell
+
+	pause *sync.WaitGroup
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -76,16 +78,45 @@ type ioChans struct {
 }
 
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
+	paused := false
 	for {
 		currentAlive := <-ioChans.distributor.output
 		select {
-		case key := <-keyChan: 
+		case key := <-keyChan:
 			switch key {
 			case 's':
-			//runs a go routine each time a new file is to be made
+				//runs a go routine each time a new file is to be made
 				go writePgmTurn(p, currentAlive)
 			case 'p':
-				fmt.Println("P")
+				dChans.io.pause.Add(1)
+
+				world := make([][]byte, p.imageHeight)
+				for i := range world {
+					world[i] = make([]byte, p.imageWidth)
+				}
+
+				for _, cell := range currentAlive {
+					world[cell.y][cell.x] = 255
+				}
+				fmt.Println("Current state of the world:")
+				printGrid(world, p)
+
+				for {
+					select {
+					case key := <-keyChan:
+						switch key {
+						case 'p':
+							dChans.io.pause.Done()
+							fmt.Println("Continuing")
+							paused = true
+							break
+						}
+					}
+					if paused {
+						paused = false
+						break
+					}
+				}
 			}
 		default:
 			//do nothing
@@ -133,6 +164,9 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.aliveOutput = aliveOutput
 	ioChans.distributor.aliveOutput = aliveOutput
 
+	var pause sync.WaitGroup
+	dChans.io.pause = &pause
+
 	aliveCells := make(chan []cell)
 
 	go distributor(p, dChans, aliveCells)
@@ -160,18 +194,18 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		512,
+		16,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		512,
+		16,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
 
-	params.turns = 10000
+	params.turns = 10000000000
 
 	startControlServer(params)
 

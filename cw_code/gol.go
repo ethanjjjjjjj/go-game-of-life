@@ -142,6 +142,9 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
+
+		d.io.pause.Wait()
+
 		//splitworld
 		slicereturns := make(chan worldpart, p.threads)
 		for i := 0; i < (p.threads); i++ {
