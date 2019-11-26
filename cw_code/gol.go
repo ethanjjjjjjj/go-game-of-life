@@ -112,7 +112,8 @@ func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan wo
 			}
 		}
 	}
-	part := worldpart{index: index, worldslice: worldnew}
+
+	part := worldpart{index: index, worldslice: worldnew[1 : len(worldnew)-1]}
 	slicereturns <- part
 }
 
@@ -142,39 +143,55 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	// Calculate the new state of Game of Life after the given number of turns.
 	for turns := 0; turns < p.turns; turns++ {
-
+		//fmt.Println("turn: ", turns, " threads: ", p.threads)
 		d.io.pause.Wait()
 
 		//splitworld
 		slicereturns := make(chan worldpart, p.threads)
+		rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
+		//fmt.Println("rows: ", rows, "remainder: ", remainder)
+		rowsindex := 0
 		for i := 0; i < (p.threads); i++ {
+			//fmt.Println("turn: ", i)
 			var worldslice [][]byte
 			if i == 0 {
-				worldslice = append(worldslice, world[p.imageHeight-1:p.imageHeight]...)
-				worldslice = append(worldslice, world[0:(p.imageHeight/p.threads)+1]...)
-				go golWorker(p, worldslice, i, slicereturns)
-			} else if i == (p.threads - 1) {
-				worldslice = append(worldslice, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)]...)
-				worldslice = append(worldslice, world[0:1]...)
-				go golWorker(p, worldslice, i, slicereturns)
+				worldslice = append(worldslice, world[len(world)-1:len(world)]...)
 			} else {
-				go golWorker(p, world[(i*(p.imageHeight/p.threads))-1:(i*(p.imageHeight/p.threads))+(p.imageHeight/p.threads)+1], i, slicereturns)
-
+				worldslice = append(worldslice, world[rowsindex-1:rowsindex]...)
 			}
 
+			worldslice = append(worldslice, world[rowsindex:rowsindex+rows]...)
+			rowsindex += rows
+			if remainder > 0 {
+
+				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
+				rowsindex++
+				remainder--
+			}
+			if i == p.threads-1 {
+				worldslice = append(worldslice, world[0:1]...)
+
+			} else {
+				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
+			}
+			go golWorker(p, worldslice, i, slicereturns)
 		}
 
-		returns := make([][][]byte, p.threads)
+		//returns := make([][][]byte, p.threads)
 		worldnew := make([][]byte, p.imageHeight)
 		for i := range world {
 			worldnew[i] = make([]byte, p.imageWidth)
 		}
 		for i := 0; i < p.threads; i++ {
 			something := <-slicereturns
-			returns[something.index] = something.worldslice
+			//returns[something.index] = something.worldslice
+			for j := 0; j < len(something.worldslice); j++ {
+				if something.index < p.imageHeight%p.threads {
+					worldnew[(something.index*rows)+something.index+j] = something.worldslice[j]
+				} else {
+					worldnew[something.index*rows+p.imageHeight%p.threads+j] = something.worldslice[j]
+				}
 
-			for j := 1; j < len(something.worldslice)-1; j++ {
-				worldnew[something.index*(p.imageHeight/p.threads)+j-1] = something.worldslice[j]
 			}
 		}
 
