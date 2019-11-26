@@ -26,7 +26,7 @@ func printGrid(world [][]byte, p golParams) {
 }
 
 //a different mod function because go doesn't like modding negatives
-func mod(a, b int) int {
+func modold(a, b int) int {
 	if a < 0 {
 		for {
 			a = a + b
@@ -43,6 +43,14 @@ func mod(a, b int) int {
 		}
 	}
 	return a
+}
+
+func mod(d, m int) int {
+	var res int = d % m
+	if (res < 0 && m > 0) || (res > 0 && m < 0) {
+		return res + m
+	}
+	return res
 }
 
 // returns number of alive neighbours to a cell
