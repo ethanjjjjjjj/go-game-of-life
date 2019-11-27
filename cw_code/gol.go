@@ -63,29 +63,12 @@ func gety(y int, height int) int {
 
 }
 
-var neighbours = [8][2]int {{-1,-1},{-1,0},{-1,1},{0,-1},{0,1},{1,-1},{1,0},{1,1}}
-
-
-
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
-
-	for a,n := range neighbours{
-		if world[gety(y+n[1],Height)][getx(x+n[0],Width)] != 0{
-			num ++
-		}
-		if num==4{
-			return num
-		}else if num==0 && a == 6{
-			return 0
-		}
-		
-	}
-
-	/*if world[y][getx(x-1, Width)] != 0 {
+	if world[y][getx(x-1, Width)] != 0 {
 		num = num + 1
 	}
 	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
