@@ -11,7 +11,7 @@ type worldpart struct {
 	worldslice [][]byte
 }
 
-func printGrid(world [][]byte, p golParams) {
+func printGrid(world [][]byte) {
 	for _, row := range world {
 		for _, cell := range row {
 			if cell == 255 {
@@ -64,7 +64,7 @@ func gety(y int, height int) int {
 }
 
 // returns number of alive neighbours to a cell
-func numNeighbours(x int, y int, world [][]byte, p golParams) int {
+func numNeighbours(x int, y int, world [][]byte) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
@@ -135,18 +135,18 @@ func aliveCells(p golParams, world [][]byte) []cell {
 	return alive
 }
 
-func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan worldpart) {
+func golWorker(worldslice [][]byte, index int, slicereturns chan worldpart) {
 
 	worldnew := make([][]byte, len(worldslice))
 	for i := 0; i < len(worldslice); i++ {
-		worldnew[i] = make([]byte, p.imageWidth)
+		worldnew[i] = make([]byte, len(worldslice[0]))
 		copy(worldnew[i], worldslice[i])
 	}
 
 	for y := 1; y < len(worldslice)-1; y++ {
 		for x := 0; x < len(worldslice[y]); x++ {
 			worldnew[y][x] = worldslice[y][x]
-			neighbours := numNeighbours(x, y, worldslice, p)
+			neighbours := numNeighbours(x, y, worldslice)
 			if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
 				worldnew[y][x] = 0
 			} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
@@ -220,7 +220,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			} else {
 				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
 			}
-			go golWorker(p, worldslice, i, slicereturns)
+			go golWorker(worldslice, i, slicereturns)
 		}
 
 		//returns := make([][][]byte, p.threads)

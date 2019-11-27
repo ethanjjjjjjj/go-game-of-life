@@ -97,7 +97,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					world[cell.y][cell.x] = 255
 				}
 				fmt.Println("Current state of the world:")
-				printGrid(world, p)
+				printGrid(world)
 
 				for {
 					select {
@@ -125,7 +125,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					world[cell.y][cell.x] = 255
 				}
 				fmt.Println("Final state of the world:")
-				printGrid(world, p)
+				printGrid(world)
 
 				os.Exit(0)
 			}
