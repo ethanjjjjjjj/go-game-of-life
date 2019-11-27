@@ -44,6 +44,7 @@ type distributorToIo struct {
 	filename chan<- string
 	inputVal <-chan uint8
 
+	//aliveOutput sends cells from distributer to pgm
 	aliveOutput    chan []cell
 	pause          *sync.WaitGroup
 	output         chan<- []cell
@@ -78,16 +79,17 @@ type ioChans struct {
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
 	paused := false
 	for {
+		//Receives the cells that are currently alive from the distributer
 		currentAlive := <-ioChans.distributor.output
 		select {
 		case key := <-keyChan:
 			switch key {
 			case 's':
-				//runs a go routine each time a new file is to be made
+				//runs a go routine each time a new pgm file is to be made
 				go writePgmTurn(p, currentAlive)
 			case 'p':
 				dChans.io.pause.Add(1)
-
+				//Creates a world to print and then pauses the distributer
 				world := make([][]byte, p.imageHeight)
 				for i := range world {
 					world[i] = make([]byte, p.imageWidth)
@@ -99,6 +101,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 				fmt.Println("Current state of the world:")
 				printGrid(world)
 
+				//On the next 'p' press the distributer can continue
 				for {
 					select {
 					case key := <-keyChan:
@@ -114,8 +117,9 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 						paused = false
 						break
 					}
-				}
+				}	
 			case 'q':
+				//Prints world in current state and quits
 				world := make([][]byte, p.imageHeight)
 				for i := range world {
 					world[i] = make([]byte, p.imageWidth)
@@ -170,10 +174,6 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
 
-	//dCommand := make(chan int)
-	//dChans.io.dCommand = dCommand
-	//ioChans.distributor.dCommand = dCommand
-
 	aliveOutput := make(chan []cell)
 	dChans.io.aliveOutput = aliveOutput
 	ioChans.distributor.aliveOutput = aliveOutput
@@ -193,14 +193,12 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.stop.Wait()
 	return alive
 }
-func periodic(d distributorChans) {
 
+func periodic(d distributorChans) {
 	for {
 		time.Sleep(2 * time.Second)
 		d.io.periodicOutput <- 1
-
 	}
-
 }
 
 // main is the function called when starting Game of Life with 'make gol'
