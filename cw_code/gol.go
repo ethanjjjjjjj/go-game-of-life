@@ -68,30 +68,56 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
+	if(x>1 && x<Height-1 && y>1 && y<Height-1){
+		if world[y][getx(x-1, Width)] != 0 {
+		num++
+	}
+	if world[y+1][x-1] != 0 {
+		num++
+	}
+	if world[y+1][x] != 0 {
+		num++
+	}
+	if world[y+1][x+1] != 0 {
+		num++
+	}
+	if world[y][x+1] != 0 {
+		num++
+	}
+	if world[y-1][x+1] != 0 {
+		num++
+	}
+	if world[y-1][x] != 0 {
+		num++
+	}
+	if world[y-1][x-1] != 0 {
+		num++
+	}
+	}else{
 	if world[y][getx(x-1, Width)] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[gety(y+1, Height)][x] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[gety(y+1, Height)][getx(x+1, Width)] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[y][getx(x+1, Width)] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[gety(y-1, Height)][getx(x+1, Width)] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[gety(y-1, Height)][x] != 0 {
-		num = num + 1
+		num++
 	}
 	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
-		num = num + 1
-	}
+		num++
+	}}
 	return num
 }
 
