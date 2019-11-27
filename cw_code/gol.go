@@ -63,12 +63,26 @@ func gety(y int, height int) int {
 
 }
 
+var neighbours = [8][2]int {{-1,-1},{-1,0},{-1,1},{0,-1},{0,1},{1,-1},{1,0},{1,1}}
+
+
+
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
-	if world[y][getx(x-1, Width)] != 0 {
+
+	for _,n := range neighbours{
+		if world[gety(y+n[1],Height)][getx(x+n[0],Width)] != 0{
+			num +=1
+		}
+		if num == 4{
+			return num
+		}
+	}
+
+	/*if world[y][getx(x-1, Width)] != 0 {
 		num = num + 1
 	}
 	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
@@ -91,7 +105,7 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	}
 	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
 		num = num + 1
-	}
+	}*/
 	return num
 }
 
@@ -137,6 +151,8 @@ func golWorker(p golParams, worldslice [][]byte, index int, slicereturns chan wo
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
+	
+	//neighbours = [8][2]int{{-1,-1},{-1,0},{-1,1},{0,-1},{0,1},{1,-1},{1,0},{1,1}}
 
 	// Create the 2D slice to store the world.
 	world := make([][]byte, p.imageHeight)
