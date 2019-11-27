@@ -73,13 +73,16 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	Height := len(world)
 	Width := len(world[0])
 
-	for _,n := range neighbours{
+	for a,n := range neighbours{
 		if world[gety(y+n[1],Height)][getx(x+n[0],Width)] != 0{
-			num +=1
+			num ++
 		}
-		if num == 4{
+		if num==4{
 			return num
+		}else if num==0 && a == 6{
+			return 0
 		}
+		
 	}
 
 	/*if world[y][getx(x-1, Width)] != 0 {
