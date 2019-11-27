@@ -91,7 +91,7 @@ func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	}
 	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
 		num = num + 1
-	}*/
+	}
 	return num
 }
 
