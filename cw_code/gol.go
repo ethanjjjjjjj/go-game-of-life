@@ -44,34 +44,52 @@ func mod(a, b int) int {
 	}
 	return a
 }
+func getx(x int, width int) int {
+	if x == width {
+		return 0
+	} else if x == -1 {
+		return width - 1
+	}
+	return x
+
+}
+func gety(y int, height int) int {
+	if y == height {
+		return 0
+	} else if y == -1 {
+		return height - 1
+	}
+	return y
+
+}
 
 // returns number of alive neighbours to a cell
 func numNeighbours(x int, y int, world [][]byte, p golParams) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
-	if world[y][mod((x-1), Width)] != 0 {
+	if world[y][getx(x-1, Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, Height)][mod((x-1), Width)] != 0 {
+	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, Height)][x] != 0 {
+	if world[gety(y+1, Height)][x] != 0 {
 		num = num + 1
 	}
-	if world[mod(y+1, Height)][mod((x+1), Width)] != 0 {
+	if world[gety(y+1, Height)][getx(x+1, Width)] != 0 {
 		num = num + 1
 	}
-	if world[y][mod((x+1), Width)] != 0 {
+	if world[y][getx(x+1, Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), Height)][mod((x+1), Width)] != 0 {
+	if world[gety(y-1, Height)][getx(x+1, Width)] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), Height)][x] != 0 {
+	if world[gety(y-1, Height)][x] != 0 {
 		num = num + 1
 	}
-	if world[mod((y-1), Height)][mod((x-1), Width)] != 0 {
+	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
 		num = num + 1
 	}
 	return num
