@@ -75,57 +75,32 @@ func numNeighbours(x int, y int, world [][]byte) int {
 	//This case is for when the x and y value of a cell and its neighbours
 	//are not near the boundary of the world so the getx and gety functions
 	//are not used unnecessarily
-	if x > 1 && x < Height-1 && y > 1 && y < Height-1 {
-		if world[y][x-1] != 0 {
-			num++
-		}
-		if world[y+1][x-1] != 0 {
-			num++
-		}
-		if world[y+1][x] != 0 {
-			num++
-		}
-		if world[y+1][x+1] != 0 {
-			num++
-		}
-		if world[y][x+1] != 0 {
-			num++
-		}
-		if world[y-1][x+1] != 0 {
-			num++
-		}
-		if world[y-1][x] != 0 {
-			num++
-		}
-		if world[y-1][x-1] != 0 {
-			num++
-		}
-	} else {
-		if world[y][getx(x-1, Width)] != 0 {
-			num++
-		}
-		if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
-			num++
-		}
-		if world[gety(y+1, Height)][x] != 0 {
-			num++
-		}
-		if world[gety(y+1, Height)][getx(x+1, Width)] != 0 {
-			num++
-		}
-		if world[y][getx(x+1, Width)] != 0 {
-			num++
-		}
-		if world[gety(y-1, Height)][getx(x+1, Width)] != 0 {
-			num++
-		}
-		if world[gety(y-1, Height)][x] != 0 {
-			num++
-		}
-		if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
-			num++
-		}
+
+	if world[y][getx(x-1, Width)] != 0 {
+		num++
 	}
+	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
+		num++
+	}
+	if world[gety(y+1, Height)][x] != 0 {
+		num++
+	}
+	if world[gety(y+1, Height)][getx(x+1, Width)] != 0 {
+		num++
+	}
+	if world[y][getx(x+1, Width)] != 0 {
+		num++
+	}
+	if world[gety(y-1, Height)][getx(x+1, Width)] != 0 {
+		num++
+	}
+	if world[gety(y-1, Height)][x] != 0 {
+		num++
+	}
+	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
+		num++
+	}
+
 	return num
 }
 
@@ -275,7 +250,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		//Outputs the number of alive cells for the periodic outouts
 		select {
 		case <-d.io.periodicOutput:
-			fmt.Println("Number of alive cells: ", len(aliveCells(p,world)))
+			fmt.Println("Number of alive cells: ", len(aliveCells(p, world)))
 		default:
 			//do nothing
 		}
@@ -286,7 +261,6 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	// Make sure that the Io has finished any output before exiting.
 	d.io.command <- ioCheckIdle
 	<-d.io.idle
-
 
 	fmt.Println(finalAlive)
 
