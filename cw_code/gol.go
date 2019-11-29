@@ -127,34 +127,16 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 				neighbours := numNeighbours(x, y, worldslice)
 				if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
 					worldnew[y][x] = 0
-					//passed because only alive cells are returned
 				} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
 					worldnew[y][x] = 0
-					//passed because only alive cells are returned
 				} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
-					//returns the alive cell immediatly after it has been calculated
-					//if index < remainder {
-					//cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					//slicereturns <- cell1
 					worldnew[y][x] = 255
-					//} else {
-					//cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					//slicereturns <- cell1
-
-					//}
-				} else if worldslice[y][x] == 255 {
-					/*if index < remainder {
-						cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-						slicereturns <- cell1
-					} else {
-						cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-						slicereturns <- cell1
-					}*/
 				}
 			}
 		}
 
-		if index%2 != 0 { //odd numbers
+		//Odd indexed workers send their rows before receiving
+		if index%2 != 0 { 
 			for i := 0; i < width; i++ {
 				workerChans.sTop <- worldnew[1][i]
 				workerChans.sBot <- worldnew[height-2][i]
@@ -162,9 +144,8 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 			for i := 0; i < width; i++ {
 				worldnew[height-1][i] = <-workerChans.rBot
 				worldnew[0][i] = <-workerChans.rTop
-				
 			}
-		} else if index%2 == 0 { //even numbers
+		} else if index%2 == 0 { //Even indexed workers receive their rows before sending
 			for i := 0; i < width; i++ {
 				worldnew[height-1][i] = <-workerChans.rBot
 				worldnew[0][i] = <-workerChans.rTop	
@@ -300,61 +281,9 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		}
 
 	}
-	// Calculate the new state of Game of Life after the given number of turns.
-	//for turns := 0; turns < p.turns; turns++ {
 
 	//Will wait if paused
 	//d.io.pause.Wait()
-
-	/*slicereturns := make(chan cell, p.imageHeight*p.imageWidth)
-	workerfinished := make(chan bool)
-	rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads*/
-
-	//rowsindex is used to append the correct amount of rows to each slice
-	/*rowsindex := 0
-
-	for i := 0; i < (p.threads); i++ {
-		var worldslice [][]byte
-		//The first thread needs the final row from the other side of the world appended to its slice
-		if i == 0 {
-			worldslice = append(worldslice, world[len(world)-1:len(world)]...)
-		} else {
-			//appending the first additional row to a slice
-			worldslice = append(worldslice, world[rowsindex-1:rowsindex]...)
-		}
-
-		//Appends to each slice the correct number of rows
-		worldslice = append(worldslice, world[rowsindex:rowsindex+rows]...)
-
-		//the next thread will need to have the next set of rows above the last row appended
-		rowsindex += rows
-
-		//If the number of threads does not divide evenly, addtional rows are added to each slice
-		if remainder > 0 {
-			worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
-			//The next slice needs to start from further up
-			rowsindex++
-			//There are fewer remainder rows to append next time
-			remainder--
-		}
-
-		//The last thread needs the first row from the other side of the world appended to the end
-		if i == p.threads-1 {
-			worldslice = append(worldslice, world[0:1]...)
-		} else {
-			//the other threads have the next row appended
-			worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
-		}
-
-		alive := aliveCells(worldslice)
-		go golWorker(worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
-
-		//the alive cells are sent to the goroutine one by one
-		for _, alivecell := range alive {
-			worldData <- alivecell
-		}
-
-	}*/
 
 	//Creates a 2D slice to reform the slices together
 	worldnew := make([][]byte, p.imageHeight)
@@ -388,8 +317,9 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	//sends all the alive cells to the keyboardInputs go routine after every turn
 	//so they can be used in creating pgm files when needed
-	var currentAlive = aliveCells(worldnew)
-	d.io.output <- currentAlive
+	
+	//var currentAlive = aliveCells(worldnew)
+	//d.io.output <- currentAlive
 
 	//Copies the new world to the original world slice for the next turn
 	for i := 0; i < len(world); i++ {
