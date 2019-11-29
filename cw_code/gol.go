@@ -120,12 +120,10 @@ func aliveCells(p golParams, world [][]byte) []cell {
 
 func golWorker(worldData chan cell, index int, slicereturns chan cell, height int, width int, numAlive int, p golParams, workerFinished chan bool) {
 	worldslice := make([][]byte, height)
-	worldnew := make([][]byte, height)
 	rows := p.imageHeight / p.threads
 	remainder := p.imageHeight % p.threads
 	for i := 0; i < height; i++ {
 		worldslice[i] = make([]byte, width)
-		worldnew[i] = make([]byte, width)
 
 	}
 
@@ -133,23 +131,15 @@ func golWorker(worldData chan cell, index int, slicereturns chan cell, height in
 		currentcell := <-worldData
 		worldslice[currentcell.y][currentcell.x] = 255
 	}
-	for i, row := range worldslice {
-		copy(worldnew[i], row)
-	}
 	//copies the slice to another one so the current slice is not overwritten prematurely
 	//fmt.Println("thread started")
 	//Will not compute on the top and bottom rows
 	for y := 1; y < len(worldslice)-1; y++ {
 		for x := 0; x < len(worldslice[y]); x++ {
-			worldnew[y][x] = worldslice[y][x]
 			neighbours := numNeighbours(x, y, worldslice)
 			if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
-				worldnew[y][x] = 0
 			} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
-				worldnew[y][x] = 0
 			} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
-				worldnew[y][x] = 255
-
 				//slicereturns <- cell{x: x, y: (index * rows) + remainder + y - 1}
 				if index < remainder {
 					//fmt.Println("1")
