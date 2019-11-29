@@ -282,7 +282,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		for {
 			select {
 			case cell := <-slicereturns:
-				fmt.Println("cell received: ", cell)
+				//fmt.Println("cell received: ", cell)
 				worldnew[cell.y][cell.x] = 255
 				break
 			default:
