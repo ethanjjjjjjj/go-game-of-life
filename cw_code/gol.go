@@ -151,25 +151,29 @@ func golWorker(worldData chan cell, index int, slicereturns chan cell, height in
 				worldnew[y][x] = 255
 
 				//slicereturns <- cell{x: x, y: (index * rows) + remainder + y - 1}
-				if index > remainder {
+				if index < remainder {
+					//fmt.Println("1")
 					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					fmt.Println(cell1)
+					//fmt.Println(cell1)
 					slicereturns <- cell1
 				} else {
+					//fmt.Println("2")
 					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					fmt.Println(cell1)
+					//fmt.Println(cell1)
 					slicereturns <- cell1
 
 				}
 
 			} else if worldslice[y][x] == 255 {
-				if index > remainder {
+				if index < remainder {
+					//fmt.Println("3")
 					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					fmt.Println(cell1)
+					//fmt.Println(cell1)
 					slicereturns <- cell1
 				} else {
+					//fmt.Println("4")
 					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					fmt.Println(cell1)
+					//fmt.Println(cell1)
 					slicereturns <- cell1
 				}
 			}
@@ -219,8 +223,8 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
 		//rowsindex is used to append the correct amount of rows to each slice
 		rowsindex := 0
-		fmt.Println("worldbefore")
-		printGrid(world)
+		//fmt.Println("worldbefore")
+		//printGrid(world)
 		for i := 0; i < (p.threads); i++ {
 			var worldslice [][]byte
 			//The first thread needs the final row from the other side of the world appended to its slice
@@ -254,6 +258,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
 			}
 			alive := aliveCells(p, worldslice)
+			//printGrid(worldslice)
 			go golWorker(worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
 
 			for _, alivecell := range alive {
@@ -267,25 +272,30 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		for i := range world {
 			worldnew[i] = make([]byte, p.imageWidth)
 		}
+		finished := 0
 
-		threadsfinished := 0
-
+		for i := 0; i < p.threads; i++ {
+			<-workerfinished
+			finished++
+		}
+		finishedloop := false
 		for {
 			select {
-			case <-workerfinished:
-				threadsfinished++
 			case cell := <-slicereturns:
+				fmt.Println("cell received: ", cell)
 				worldnew[cell.y][cell.x] = 255
+				break
 			default:
-				//do nothing
+				finishedloop = true
+				break
 			}
-			if threadsfinished == p.threads {
+			if finishedloop {
 				break
 			}
 
 		}
-		fmt.Println("world after")
-		printGrid(worldnew)
+		//fmt.Println("world after")
+		//printGrid(worldnew)
 
 		//sends all the alive cells to the keyboardInputs go routine after every turn
 		//so they can be used in creating pgm files when needed
