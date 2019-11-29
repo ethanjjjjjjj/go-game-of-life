@@ -26,26 +26,6 @@ func printGrid(world [][]byte) {
 	fmt.Println(" ")
 }
 
-//a different mod function because go doesn't like modding negatives
-/*func mod(a, b int) int {
-	if a < 0 {
-		for {
-			a = a + b
-			if a >= 0 {
-				break
-			}
-		}
-	} else if a >= b {
-		for {
-			a = a - b
-			if a < b {
-				break
-			}
-		}
-	}
-	return a
-}*/
-
 //getx and gety are used for checking neighbours when the x or y coordindate of the cell is at
 //the edges of the world. This is used because modding is slow
 func getx(x int, width int) int {
@@ -138,41 +118,32 @@ func golWorker(worldData chan cell, index int, slicereturns chan cell, height in
 		for x := 0; x < len(worldslice[y]); x++ {
 			neighbours := numNeighbours(x, y, worldslice)
 			if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
+				//passed because only alive cells are returned
 			} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
+
+				//passed because only alive cells are returned
 			} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
 				//slicereturns <- cell{x: x, y: (index * rows) + remainder + y - 1}
 				if index < remainder {
-					//fmt.Println("1")
 					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					//fmt.Println(cell1)
 					slicereturns <- cell1
 				} else {
-					//fmt.Println("2")
 					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					//fmt.Println(cell1)
 					slicereturns <- cell1
 
 				}
-
 			} else if worldslice[y][x] == 255 {
 				if index < remainder {
-					//fmt.Println("3")
 					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					//fmt.Println(cell1)
 					slicereturns <- cell1
 				} else {
-					//fmt.Println("4")
 					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					//fmt.Println(cell1)
 					slicereturns <- cell1
 				}
 			}
 		}
 	}
-	//fmt.Println("thread finished")
 	workerFinished <- true
-	//fmt.Println("thread returned")
-
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
