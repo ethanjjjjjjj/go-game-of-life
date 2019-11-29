@@ -108,8 +108,8 @@ func numNeighbours(x int, y int, world [][]byte) int {
 func aliveCells(p golParams, world [][]byte) []cell {
 	var alive []cell
 	// Go through the world and append the cells that are still alive.
-	for y := 0; y < p.imageHeight; y++ {
-		for x := 0; x < p.imageWidth; x++ {
+	for y := 0; y < len(world); y++ {
+		for x := 0; x < len(world[0]); x++ {
 			if world[y][x] != 0 {
 				alive = append(alive, cell{x: x, y: y})
 			}
@@ -118,15 +118,26 @@ func aliveCells(p golParams, world [][]byte) []cell {
 	return alive
 }
 
-func golWorker(worldslice [][]byte, index int, slicereturns chan worldpart) {
+func golWorker(worldData chan cell, index int, slicereturns chan cell, height int, width int, numAlive int, p golParams, workerFinished chan bool) {
+	worldslice := make([][]byte, height)
+	worldnew := make([][]byte, height)
+	rows := p.imageHeight / p.threads
+	remainder := p.imageHeight % p.threads
+	for i := 0; i < height; i++ {
+		worldslice[i] = make([]byte, width)
+		worldnew[i] = make([]byte, width)
 
-	//copies the slice to another one so the current slice is not overwritten prematurely
-	worldnew := make([][]byte, len(worldslice))
-	for i := 0; i < len(worldslice); i++ {
-		worldnew[i] = make([]byte, len(worldslice[0]))
-		copy(worldnew[i], worldslice[i])
 	}
 
+	for i := 0; i < numAlive; i++ {
+		currentcell := <-worldData
+		worldslice[currentcell.y][currentcell.x] = 255
+	}
+	for i, row := range worldslice {
+		copy(worldnew[i], row)
+	}
+	//copies the slice to another one so the current slice is not overwritten prematurely
+	//fmt.Println("thread started")
 	//Will not compute on the top and bottom rows
 	for y := 1; y < len(worldslice)-1; y++ {
 		for x := 0; x < len(worldslice[y]); x++ {
@@ -138,16 +149,46 @@ func golWorker(worldslice [][]byte, index int, slicereturns chan worldpart) {
 				worldnew[y][x] = 0
 			} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
 				worldnew[y][x] = 255
+
+				//slicereturns <- cell{x: x, y: (index * rows) + remainder + y - 1}
+				if index < remainder {
+					//fmt.Println("1")
+					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
+					//fmt.Println(cell1)
+					slicereturns <- cell1
+				} else {
+					//fmt.Println("2")
+					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
+					//fmt.Println(cell1)
+					slicereturns <- cell1
+
+				}
+
+			} else if worldslice[y][x] == 255 {
+				if index < remainder {
+					//fmt.Println("3")
+					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
+					//fmt.Println(cell1)
+					slicereturns <- cell1
+				} else {
+					//fmt.Println("4")
+					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
+					//fmt.Println(cell1)
+					slicereturns <- cell1
+				}
 			}
 		}
 	}
+	//fmt.Println("thread finished")
+	workerFinished <- true
+	//fmt.Println("thread returned")
 
-	part := worldpart{index: index, worldslice: worldnew[1 : len(worldnew)-1]}
-	slicereturns <- part
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
+	//channels for passing the world through to workers
+	worldData := make(chan cell)
 
 	// Create the 2D slice to store the world.
 	world := make([][]byte, p.imageHeight)
@@ -177,10 +218,13 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		d.io.pause.Wait()
 
 		//splitworld
-		slicereturns := make(chan worldpart, p.threads)
+		slicereturns := make(chan cell, p.imageHeight*p.imageWidth)
+		workerfinished := make(chan bool)
 		rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
 		//rowsindex is used to append the correct amount of rows to each slice
 		rowsindex := 0
+		//fmt.Println("worldbefore")
+		//printGrid(world)
 		for i := 0; i < (p.threads); i++ {
 			var worldslice [][]byte
 			//The first thread needs the final row from the other side of the world appended to its slice
@@ -213,8 +257,14 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 				//the other threads have the next row appended
 				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
 			}
+			alive := aliveCells(p, worldslice)
+			//printGrid(worldslice)
+			go golWorker(worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
 
-			go golWorker(worldslice, i, slicereturns)
+			for _, alivecell := range alive {
+				worldData <- alivecell
+			}
+
 		}
 
 		//Creates a 2D slice to reform the threads' slices together
@@ -222,22 +272,34 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		for i := range world {
 			worldnew[i] = make([]byte, p.imageWidth)
 		}
+		finished := 0
 
-		//Adds the threads' slices to the new world according to their index
 		for i := 0; i < p.threads; i++ {
-			something := <-slicereturns
-			for j := 0; j < len(something.worldslice); j++ {
-				if something.index < p.imageHeight%p.threads {
-					worldnew[(something.index*rows)+something.index+j] = something.worldslice[j]
-				} else {
-					worldnew[something.index*rows+p.imageHeight%p.threads+j] = something.worldslice[j]
-				}
-
-			}
+			<-workerfinished
+			finished++
 		}
+		finishedloop := false
+		for {
+			select {
+			case cell := <-slicereturns:
+				fmt.Println("cell received: ", cell)
+				worldnew[cell.y][cell.x] = 255
+				break
+			default:
+				finishedloop = true
+				break
+			}
+			if finishedloop {
+				break
+			}
+
+		}
+		//fmt.Println("world after")
+		//printGrid(worldnew)
 
 		//sends all the alive cells to the keyboardInputs go routine after every turn
 		//so they can be used in creating pgm files when needed
+
 		var currentAlive = aliveCells(p, worldnew)
 		d.io.output <- currentAlive
 
