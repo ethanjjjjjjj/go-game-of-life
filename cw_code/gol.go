@@ -209,12 +209,12 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	rowsindex := 0
 
 	//For last thread bottom
-	rTop1 := make(chan byte)
-	sTop1 := make(chan byte)
+	rTop1 := make(chan byte,p.imageWidth*p.threads)
+	sTop1 := make(chan byte,p.imageWidth*p.threads)
 
 	//Current thread top, next thread bottom
-	rememberBotR := make(chan byte)
-	rememberBotS := make(chan byte)
+	rememberBotR := make(chan byte,p.imageWidth*p.threads)
+	rememberBotS := make(chan byte,p.imageWidth*p.threads)
 	for i := 0; i < p.threads; i++ {
 
 		var worldslice [][]byte
@@ -268,8 +268,8 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			var workerChans workerExchange
 			workerChans.rTop = rememberBotS
 			workerChans.sTop = rememberBotR
-			var newChanR = make(chan byte)
-			var newChanS = make(chan byte)
+			var newChanR = make(chan byte,p.imageWidth*p.threads)
+			var newChanS = make(chan byte,p.imageWidth*p.threads)
 			rememberBotR = newChanR
 			rememberBotS = newChanS
 			workerChans.rBot = rememberBotR
