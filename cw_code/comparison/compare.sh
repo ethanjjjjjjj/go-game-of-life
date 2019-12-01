@@ -15,8 +15,9 @@ echo "Benchmarking..."
 
 benchtime=10x
 
-#for b in 128x128x2 128x128x4 128x128x8 512x512x2 512x512x4 512x512x8
-for b in 128x128x2 128x128x4 128x128x8
+
+for b in 128x128x2 128x128x4 128x128x8 512x512x2 512x512x4 512x512x8
+#for b in 128x128x2 128x128x4 128x128x8
 do
     echo ${b} on your solution
     \time -f '%P' -o your-time.txt -a ./gameoflife.test -test.run XXX -test.bench /${b} -test.benchtime ${benchtime} >> your-out.txt

@@ -209,7 +209,7 @@ func main() {
 	flag.IntVar(
 		&params.threads,
 		"t",
-		6,
+		100,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(
@@ -226,7 +226,7 @@ func main() {
 
 	flag.Parse()
 
-	params.turns = 10
+	params.turns = 100000000
 
 	startControlServer(params)
 
