@@ -195,9 +195,12 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 }
 
 func periodic(d distributorChans) {
+	ticker := time.NewTicker(2 * time.Second)
 	for {
-		time.Sleep(2 * time.Second)
+		select{
+		case <- ticker.C:
 		d.io.periodicOutput <- 1
+		}
 	}
 }
 
