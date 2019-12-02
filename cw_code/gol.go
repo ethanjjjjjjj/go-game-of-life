@@ -20,7 +20,7 @@ type workerExchange struct {
 type alivecellnumbers struct {
 	index int
 	cells int
-	turn int
+	turn  int
 }
 
 func printGrid(world [][]byte) {
@@ -105,6 +105,27 @@ func aliveCells(world [][]byte) []cell {
 	return alive
 }
 
+func threadSyncer(d distributorChans, p golParams) {
+	var signal byte
+	for {
+		signal = 0
+		select {
+
+		case <-d.io.periodicOutput:
+			signal = 1
+
+		default:
+		}
+
+		for i := 0; i < p.threads; i++ {
+			<-d.io.threadsyncin
+		}
+
+		for i := 0; i < p.threads; i++ {
+			d.io.threadsyncout <- signal
+		}
+	}
+}
 func golWorker(workerChans workerExchange, worldData chan cell, index int, slicereturns chan cell, height int, width int, numAlive int, p golParams, workerFinished chan bool, d distributorChans) {
 
 	worldslice := make([][]byte, height)
@@ -121,24 +142,27 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 	}
 
 	for turns := 0; turns < p.turns; turns++ {
-		d.io.threadsync.Add(-1)
-		d.io.threadsync.Wait()
-		select {
-		case <-d.io.periodicOutput:
-			d.io.periodicNumber <- alivecellnumbers{index: index, cells: len(aliveCells(worldslice[1 : len(worldslice)-1])), turn: turns}
-			//<-d.io.numberLogged
-			break
-		default:
-			//do nothing
-			//fmt.Println("ree")
-		}
-		worldnew := make([][]byte, height)
 
+		//d.io.
+		//fmt.Println("gol: ", 1)
+		//fmt.Println(turns)
+		d.io.threadsyncin <- true
+		signal := <-d.io.threadsyncout
+		if signal == 1 {
+			fmt.Println("thread index: ", index, " turn: ", turns)
+			d.io.periodicNumber <- len(aliveCells(worldslice[1 : len(worldslice)-1]))
+
+		}
+
+		//fmt.Println("gol: ", 2)
+
+		worldnew := make([][]byte, height)
+		//fmt.Println("gol: ", 3)
 		for i := 0; i < height; i++ {
 			worldnew[i] = make([]byte, width)
 			copy(worldnew[i], worldslice[i])
 		}
-
+		//fmt.Println("gol: ", 4)
 		for y := 1; y < len(worldslice)-1; y++ {
 			for x := 0; x < len(worldslice[y]); x++ {
 				neighbours := numNeighbours(x, y, worldslice)
@@ -151,7 +175,8 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 				}
 			}
 		}
-
+		//fmt.Println("gol: ", 5)
+		//d.io.threadsync.Add(1)
 		//Odd indexed workers send their rows before receiving
 		if index%2 != 0 {
 			for i := 0; i < width; i++ {
@@ -172,7 +197,7 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 				workerChans.sBot <- worldnew[height-2][i]
 			}
 		}
-
+		//fmt.Println("gol: ", 6)
 		copy(worldslice, worldnew)
 
 	}
@@ -194,6 +219,7 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
+	go threadSyncer(d, p)
 
 	//channels for passing the cells through to workers
 	worldData := make(chan cell)
@@ -220,19 +246,19 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	}
 
 	slicereturns := make(chan cell, p.imageHeight*p.imageWidth)
-	workerfinished := make(chan bool, p.threads)
+	workerfinished := make(chan bool, p.threads*p.threads)
 	rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
 
 	//rowsindex is used to append the correct amount of rows to each slice
 	rowsindex := 0
 
 	//For last thread bottom
-	rTop1 := make(chan byte, p.imageWidth*p.threads)
-	sTop1 := make(chan byte, p.imageWidth*p.threads)
+	rTop1 := make(chan byte, p.imageWidth*p.threads*p.threads)
+	sTop1 := make(chan byte, p.imageWidth*p.threads*p.threads)
 
 	//Current thread top, next thread bottom
-	rememberBotR := make(chan byte, p.imageWidth)
-	rememberBotS := make(chan byte, p.imageWidth)
+	rememberBotR := make(chan byte, p.imageWidth*p.threads*p.threads)
+	rememberBotS := make(chan byte, p.imageWidth*p.threads*p.threads)
 	for i := 0; i < p.threads; i++ {
 
 		var worldslice [][]byte
@@ -286,8 +312,8 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			var workerChans workerExchange
 			workerChans.rTop = rememberBotS
 			workerChans.sTop = rememberBotR
-			var newChanR = make(chan byte, p.imageWidth)
-			var newChanS = make(chan byte, p.imageWidth)
+			var newChanR = make(chan byte, p.imageWidth*p.threads*p.threads)
+			var newChanS = make(chan byte, p.imageWidth*p.threads*p.threads)
 			rememberBotR = newChanR
 			rememberBotS = newChanS
 			workerChans.rBot = rememberBotR

@@ -48,11 +48,15 @@ type distributorToIo struct {
 	aliveOutput    chan []cell
 	pause          *sync.WaitGroup
 	output         chan<- []cell
-	periodicOutput chan byte
+	periodicOutput chan bool
 	stop           *sync.WaitGroup
-	threadsync     *sync.WaitGroup
-	periodicNumber chan alivecellnumbers
+	threadsyncin   chan bool
+	threadsyncout  chan byte
+
+	periodicNumber chan int
 	numberLogged   chan byte
+	turnsync       chan int
+	turnsback      chan int
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -170,18 +174,25 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.output = output
 	ioChans.distributor.output = output
 
-	periodicOutput := make(chan byte, p.threads)
+	periodicOutput := make(chan bool, p.threads)
 	dChans.io.periodicOutput = periodicOutput
-	periodicNumber := make(chan alivecellnumbers, p.threads)
+	periodicNumber := make(chan int, p.threads*p.threads*p.threads)
 	dChans.io.periodicNumber = periodicNumber
-	numberLogged := make(chan byte, p.threads)
+	numberLogged := make(chan byte, p.threads*p.threads*p.threads)
 	dChans.io.numberLogged = numberLogged
+	turnsync := make(chan int)
+	dChans.io.turnsync = turnsync
+	turnsback := make(chan int)
+	dChans.io.turnsback = turnsback
 
 	var stop sync.WaitGroup
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
-	var threadsync sync.WaitGroup
-	dChans.io.threadsync = &threadsync
+	threadsyncin := make(chan bool, p.threads)
+	dChans.io.threadsyncin = threadsyncin
+
+	threadsyncout := make(chan byte, p.threads)
+	dChans.io.threadsyncout = threadsyncout
 
 	aliveOutput := make(chan []cell)
 	dChans.io.aliveOutput = aliveOutput
@@ -205,23 +216,15 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 
 func periodic(d distributorChans, p golParams) {
 	for {
+		//fmt.Println("send output signal")
 		time.Sleep(2 * time.Second)
-		d.io.threadsync.Add(16)
-		for i := 0; i < p.threads; i++ {
-			d.io.periodicOutput <- 1
-		}
+		fmt.Println("main:", 1)
+		d.io.periodicOutput <- true
 		number := 0
 		for i := 0; i < p.threads; i++ {
-			x := <-d.io.periodicNumber
-			number += x.cells
-			fmt.Println(x)
+			number += <-d.io.periodicNumber
 		}
-		fmt.Println("number of alive cells: ", number)
-		/*for i:=0;i<p.threads;i++{
-			d.io.numberLogged <- 1
-			fmt.Println(i)
-		}*/
-
+		fmt.Println(number)
 	}
 }
 
@@ -233,7 +236,7 @@ func main() {
 	flag.IntVar(
 		&params.threads,
 		"t",
-		16,
+		6,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(
@@ -252,9 +255,9 @@ func main() {
 
 	params.turns = 100000000
 
-	startControlServer(params)
+	//startControlServer(params)
 	keyChannel := make(chan rune)
 	go getKeyboardCommand(keyChannel)
 	gameOfLife(params, keyChannel)
-	StopControlServer()
+	//StopControlServer()
 }
