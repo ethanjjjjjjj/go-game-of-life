@@ -50,6 +50,9 @@ type distributorToIo struct {
 	output         chan<- []cell
 	periodicOutput chan byte
 	stop           *sync.WaitGroup
+	threadsync     *sync.WaitGroup
+	periodicNumber chan alivecellnumbers
+	numberLogged   chan byte
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -117,7 +120,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 						paused = false
 						break
 					}
-				}	
+				}
 			case 'q':
 				//Prints world in current state and quits
 				world := make([][]byte, p.imageHeight)
@@ -167,12 +170,18 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.output = output
 	ioChans.distributor.output = output
 
-	periodicOutput := make(chan byte)
+	periodicOutput := make(chan byte, p.threads)
 	dChans.io.periodicOutput = periodicOutput
+	periodicNumber := make(chan alivecellnumbers, p.threads)
+	dChans.io.periodicNumber = periodicNumber
+	numberLogged := make(chan byte, p.threads)
+	dChans.io.numberLogged = numberLogged
 
 	var stop sync.WaitGroup
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
+	var threadsync sync.WaitGroup
+	dChans.io.threadsync = &threadsync
 
 	aliveOutput := make(chan []cell)
 	dChans.io.aliveOutput = aliveOutput
@@ -182,7 +191,7 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.pause = &pause
 
 	aliveCells := make(chan []cell)
-	go periodic(dChans)
+	go periodic(dChans, p)
 	go distributor(p, dChans, aliveCells)
 
 	go keyboardInputs(p, keyChan, dChans, ioChans)
@@ -194,10 +203,25 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	return alive
 }
 
-func periodic(d distributorChans) {
+func periodic(d distributorChans, p golParams) {
 	for {
 		time.Sleep(2 * time.Second)
-		d.io.periodicOutput <- 1
+		d.io.threadsync.Add(16)
+		for i := 0; i < p.threads; i++ {
+			d.io.periodicOutput <- 1
+		}
+		number := 0
+		for i := 0; i < p.threads; i++ {
+			x := <-d.io.periodicNumber
+			number += x.cells
+			fmt.Println(x)
+		}
+		fmt.Println("number of alive cells: ", number)
+		/*for i:=0;i<p.threads;i++{
+			d.io.numberLogged <- 1
+			fmt.Println(i)
+		}*/
+
 	}
 }
 
@@ -209,7 +233,7 @@ func main() {
 	flag.IntVar(
 		&params.threads,
 		"t",
-		100,
+		16,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(
@@ -229,7 +253,6 @@ func main() {
 	params.turns = 100000000
 
 	startControlServer(params)
-
 	keyChannel := make(chan rune)
 	go getKeyboardCommand(keyChannel)
 	gameOfLife(params, keyChannel)

@@ -17,6 +17,12 @@ type workerExchange struct {
 	sBot chan<- byte
 }
 
+type alivecellnumbers struct {
+	index int
+	cells int
+	turn int
+}
+
 func printGrid(world [][]byte) {
 	for _, row := range world {
 		for _, cell := range row {
@@ -99,7 +105,7 @@ func aliveCells(world [][]byte) []cell {
 	return alive
 }
 
-func golWorker(workerChans workerExchange, worldData chan cell, index int, slicereturns chan cell, height int, width int, numAlive int, p golParams, workerFinished chan bool) {
+func golWorker(workerChans workerExchange, worldData chan cell, index int, slicereturns chan cell, height int, width int, numAlive int, p golParams, workerFinished chan bool, d distributorChans) {
 
 	worldslice := make([][]byte, height)
 	rows := p.imageHeight / p.threads
@@ -115,6 +121,17 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 	}
 
 	for turns := 0; turns < p.turns; turns++ {
+		d.io.threadsync.Add(-1)
+		d.io.threadsync.Wait()
+		select {
+		case <-d.io.periodicOutput:
+			d.io.periodicNumber <- alivecellnumbers{index: index, cells: len(aliveCells(worldslice[1 : len(worldslice)-1])), turn: turns}
+			//<-d.io.numberLogged
+			break
+		default:
+			//do nothing
+			//fmt.Println("ree")
+		}
 		worldnew := make([][]byte, height)
 
 		for i := 0; i < height; i++ {
@@ -136,7 +153,7 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 		}
 
 		//Odd indexed workers send their rows before receiving
-		if index%2 != 0 { 
+		if index%2 != 0 {
 			for i := 0; i < width; i++ {
 				workerChans.sTop <- worldnew[1][i]
 				workerChans.sBot <- worldnew[height-2][i]
@@ -148,7 +165,7 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 		} else if index%2 == 0 { //Even indexed workers receive their rows before sending
 			for i := 0; i < width; i++ {
 				worldnew[height-1][i] = <-workerChans.rBot
-				worldnew[0][i] = <-workerChans.rTop	
+				worldnew[0][i] = <-workerChans.rTop
 			}
 			for i := 0; i < width; i++ {
 				workerChans.sTop <- worldnew[1][i]
@@ -177,6 +194,7 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p golParams, d distributorChans, alive chan []cell) {
+
 	//channels for passing the cells through to workers
 	worldData := make(chan cell)
 
@@ -202,19 +220,19 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 	}
 
 	slicereturns := make(chan cell, p.imageHeight*p.imageWidth)
-	workerfinished := make(chan bool,p.threads)
+	workerfinished := make(chan bool, p.threads)
 	rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
 
 	//rowsindex is used to append the correct amount of rows to each slice
 	rowsindex := 0
 
 	//For last thread bottom
-	rTop1 := make(chan byte,p.imageWidth*p.threads)
-	sTop1 := make(chan byte,p.imageWidth*p.threads)
+	rTop1 := make(chan byte, p.imageWidth*p.threads)
+	sTop1 := make(chan byte, p.imageWidth*p.threads)
 
 	//Current thread top, next thread bottom
-	rememberBotR := make(chan byte,p.imageWidth)
-	rememberBotS := make(chan byte,p.imageWidth)
+	rememberBotR := make(chan byte, p.imageWidth)
+	rememberBotS := make(chan byte, p.imageWidth)
 	for i := 0; i < p.threads; i++ {
 
 		var worldslice [][]byte
@@ -256,25 +274,25 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 			workerChans.sTop = sTop1
 			workerChans.rBot = rememberBotR
 			workerChans.sBot = rememberBotS
-			go golWorker(workerChans, worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
+			go golWorker(workerChans, worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished, d)
 		} else if i == p.threads-1 {
 			var workerChans workerExchange
 			workerChans.rTop = rememberBotS
 			workerChans.sTop = rememberBotR
 			workerChans.rBot = sTop1
 			workerChans.sBot = rTop1
-			go golWorker(workerChans, worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
+			go golWorker(workerChans, worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished, d)
 		} else {
 			var workerChans workerExchange
 			workerChans.rTop = rememberBotS
 			workerChans.sTop = rememberBotR
-			var newChanR = make(chan byte,p.imageWidth)
-			var newChanS = make(chan byte,p.imageWidth)
+			var newChanR = make(chan byte, p.imageWidth)
+			var newChanS = make(chan byte, p.imageWidth)
 			rememberBotR = newChanR
 			rememberBotS = newChanS
 			workerChans.rBot = rememberBotR
 			workerChans.sBot = rememberBotS
-			go golWorker(workerChans, worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
+			go golWorker(workerChans, worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished, d)
 		}
 		for _, alivecell := range alive {
 			worldData <- alivecell
@@ -317,7 +335,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	//sends all the alive cells to the keyboardInputs go routine after every turn
 	//so they can be used in creating pgm files when needed
-	
+
 	//var currentAlive = aliveCells(worldnew)
 	//d.io.output <- currentAlive
 
