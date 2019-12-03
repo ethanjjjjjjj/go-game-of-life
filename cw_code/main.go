@@ -120,7 +120,6 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 	paused := false
 	for {
 		//Receives the cells that are currently alive from the distributer
-		//currentAlive := <-ioChans.distributor.output
 		select {
 		case key := <-keyChan:
 			switch key {
@@ -136,17 +135,6 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 				<-dChans.io.printpause
 				dChans.io.pause.Add(1)
 				fmt.Println("Paused")
-				//Creates a world to print and then pauses the distributer
-				/*world := make([][]byte, p.imageHeight)
-				for i := range world {
-					world[i] = make([]byte, p.imageWidth)
-				}
-
-				for _, cell := range currentAlive {
-					world[cell.y][cell.x] = 255
-				}
-				fmt.Println("Current state of the world:")
-				printGrid(world)*/
 
 				//On the next 'p' press the distributer can continue
 				for {
@@ -168,17 +156,6 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 				}
 			case 'q':
 				dChans.io.outputS <- 1
-				//Prints world in current state and quits
-				/*world := make([][]byte, p.imageHeight)
-				for i := range world {
-					world[i] = make([]byte, p.imageWidth)
-				}
-
-				for _, cell := range currentAlive {
-					world[cell.y][cell.x] = 255
-				}
-				fmt.Println("Final state of the world:")
-				printGrid(world)*/
 				currentAlive := collateboard(dChans, p)
 				dChans.io.pause.Add(1)
 				writePgmTurn(p, currentAlive)
@@ -271,15 +248,13 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 
 func periodic(d distributorChans, p golParams) {
 	for {
-		//fmt.Println("send output signal")
 		time.Sleep(2 * time.Second)
-		//fmt.Println("main:", 1)
 		d.io.periodicOutput <- true
 		number := 0
 		for i := 0; i < p.threads; i++ {
 			number += <-d.io.periodicNumber
 		}
-		fmt.Println("cells alive: ", number)
+		fmt.Println("Cells alive: ", number)
 	}
 }
 
@@ -308,7 +283,7 @@ func main() {
 
 	flag.Parse()
 
-	params.turns = 100000000
+	params.turns = 500
 
 	startControlServer(params)
 	keyChannel := make(chan rune)

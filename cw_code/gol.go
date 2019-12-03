@@ -147,13 +147,9 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 
 	for turns := 0; turns < p.turns; turns++ {
 
-		//d.io.
-		//fmt.Println("gol: ", 1)
-		//fmt.Println(turns)
 		d.io.threadsyncin <- true
 		signal := <-d.io.threadsyncout
 		if signal == 1 {
-			//fmt.Println("thread index: ", index, " turn: ", turns)
 			d.io.periodicNumber <- len(aliveCells(worldslice[1 : len(worldslice)-1]))
 
 		} else if signal == 2 {
@@ -175,15 +171,13 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 			d.io.printpause <- true
 		}
 		d.io.pause.Wait()
-		//fmt.Println("gol: ", 2)
 
 		worldnew := make([][]byte, height)
-		//fmt.Println("gol: ", 3)
 		for i := 0; i < height; i++ {
 			worldnew[i] = make([]byte, width)
 			copy(worldnew[i], worldslice[i])
 		}
-		//fmt.Println("gol: ", 4)
+
 		for y := 1; y < len(worldslice)-1; y++ {
 			for x := 0; x < len(worldslice[y]); x++ {
 				neighbours := numNeighbours(x, y, worldslice)
@@ -196,8 +190,7 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 				}
 			}
 		}
-		//fmt.Println("gol: ", 5)
-		//d.io.threadsync.Add(1)
+
 		//Odd indexed workers send their rows before receiving
 		if index%2 != 0 {
 			for i := 0; i < width; i++ {
@@ -218,7 +211,6 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 				workerChans.sBot <- worldnew[height-2][i]
 			}
 		}
-		//fmt.Println("gol: ", 6)
 		copy(worldslice, worldnew)
 
 	}
@@ -347,9 +339,6 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 
 	}
 
-	//Will wait if paused
-	//d.io.pause.Wait()
-
 	//Creates a 2D slice to reform the slices together
 	worldnew := make([][]byte, p.imageHeight)
 	for i := range world {
@@ -380,39 +369,16 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		}
 	}
 
-	//sends all the alive cells to the keyboardInputs go routine after every turn
-	//so they can be used in creating pgm files when needed
-
-	//var currentAlive = aliveCells(worldnew)
-	//d.io.output <- currentAlive
-
-	//Copies the new world to the original world slice for the next turn
-	for i := 0; i < len(world); i++ {
-		world[i] = make([]byte, p.imageWidth)
-		copy(world[i], worldnew[i])
-	}
-
-	//Outputs the number of alive cells for the periodic outouts
-	select {
-	case <-d.io.periodicOutput:
-		fmt.Println("Number of alive cells: ", len(aliveCells(world)))
-	default:
-		//do nothing
-	}
-	//}
-
-	var finalAlive = aliveCells(world)
+	var finalAlive = aliveCells(worldnew)
 
 	// Make sure that the Io has finished any output before exiting.
 	d.io.command <- ioCheckIdle
 	<-d.io.idle
 
-	//fmt.Println(finalAlive)
 
 	// Telling pgm.go to start the write function
 	d.io.command <- ioOutput
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
-	d.io.output <- finalAlive
 	// Return the coordinates of cells that are still alive.
 	d.io.aliveOutput <- finalAlive
 	alive <- finalAlive
