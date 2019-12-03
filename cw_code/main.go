@@ -261,13 +261,14 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 
 func periodic(d distributorChans, p golParams) {
 	for {
-		time.Sleep(2 * time.Second)
+
 		d.io.periodicOutput <- true
 		number := 0
 		for i := 0; i < p.threads; i++ {
 			number += <-d.io.periodicNumber
 		}
 		fmt.Println("Cells alive: ", number)
+		time.Sleep(2 * time.Second)
 	}
 }
 
