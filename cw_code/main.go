@@ -35,6 +35,26 @@ type cell struct {
 	x, y int
 }
 
+
+type keyChans struct{
+	startSend chan bool 
+	finishedSend chan bool
+	currentCells chan cell
+	turnsPrinted chan bool
+	printTurns chan bool 
+	pause *sync.WaitGroup
+
+}
+
+type threadSyncChans struct{
+	threadSyncIn chan bool
+	threadSyncOut chan byte
+}
+
+type periodicOutputs struct{
+
+}
+
 // distributorToIo defines all chans that the distributor goroutine will have to communicate with the io goroutine.
 // Note the restrictions on chans being send-only or receive-only to prevent bugs.
 type distributorToIo struct {
@@ -46,8 +66,6 @@ type distributorToIo struct {
 
 	//aliveOutput sends cells from distributer to pgm
 	aliveOutput    chan []cell
-	pause          *sync.WaitGroup
-	output         chan<- []cell
 	periodicOutput chan bool
 	stop           *sync.WaitGroup
 	threadsyncin   chan bool
@@ -57,12 +75,6 @@ type distributorToIo struct {
 	numberLogged   chan byte
 	turnsync       chan int
 	turnsback      chan int
-
-	pauseprint   chan bool
-	printpause   chan bool
-	outputS      chan int
-	currentCells chan cell
-	stopS        chan int
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -74,7 +86,6 @@ type ioToDistributor struct {
 	filename <-chan string
 	inputVal chan<- uint8
 
-	output      <-chan []cell
 	aliveOutput chan []cell
 	stop        *sync.WaitGroup
 }
@@ -89,10 +100,10 @@ type ioChans struct {
 	distributor ioToDistributor
 }
 
-func collateboard(dChans distributorChans, p golParams) []cell {
+func collateBoard(dChans distributorChans, p golParams, k keyChans) []cell {
 	var receivedFrom = 0
 	for {
-		<-dChans.io.stopS
+		<-k.finishedSend
 		receivedFrom++
 		if receivedFrom == p.threads {
 			break
@@ -103,7 +114,7 @@ func collateboard(dChans distributorChans, p golParams) []cell {
 	finishedloop := false
 	for {
 		select {
-		case c := <-dChans.io.currentCells:
+		case c := <-k.currentCells:
 			currentAlive = append(currentAlive, c)
 			break
 		default:
@@ -116,7 +127,7 @@ func collateboard(dChans distributorChans, p golParams) []cell {
 	}
 	return currentAlive
 }
-func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
+func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, kChans keyChans) {
 	paused := false
 	for {
 		//Receives the cells that are currently alive from the distributer
@@ -125,15 +136,15 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 			switch key {
 			case 's':
 
-				dChans.io.outputS <- 1
+				kChans.startSend <- true
 
 				//runs a go routine each time a new pgm file is to be made
-				currentAlive := collateboard(dChans, p)
+				currentAlive := collateBoard(dChans, p, kChans)
 				go writePgmTurn(p, currentAlive)
 			case 'p':
-				dChans.io.pauseprint <- true
-				<-dChans.io.printpause
-				dChans.io.pause.Add(1)
+				kChans.printTurns <- true
+				<-kChans.turnsPrinted
+				kChans.pause.Add(1)
 				fmt.Println("Paused")
 
 				//On the next 'p' press the distributer can continue
@@ -142,8 +153,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					case key := <-keyChan:
 						switch key {
 						case 'p':
-
-							dChans.io.pause.Done()
+							kChans.pause.Done()
 							fmt.Println("Continuing")
 							paused = true
 							break
@@ -155,10 +165,11 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					}
 				}
 			case 'q':
-				dChans.io.outputS <- 1
-				currentAlive := collateboard(dChans, p)
-				dChans.io.pause.Add(1)
+				kChans.startSend <- true
+				currentAlive := collateBoard(dChans, p,kChans)
+				kChans.pause.Add(1)
 				writePgmTurn(p, currentAlive)
+				StopControlServer()
 
 				os.Exit(0)
 			}
@@ -175,6 +186,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	var dChans distributorChans
 	var ioChans ioChans
+	var keyChans keyChans
 
 	ioCommand := make(chan ioCommand)
 	dChans.io.command = ioCommand
@@ -192,10 +204,6 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.inputVal = inputVal
 	ioChans.distributor.inputVal = inputVal
 
-	output := make(chan []cell)
-	dChans.io.output = output
-	ioChans.distributor.output = output
-
 	periodicOutput := make(chan bool, p.threads)
 	dChans.io.periodicOutput = periodicOutput
 	periodicNumber := make(chan int, p.threads*p.threads*p.threads)
@@ -206,15 +214,12 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.turnsync = turnsync
 	turnsback := make(chan int)
 	dChans.io.turnsback = turnsback
-	pauseprint := make(chan bool)
-	dChans.io.pauseprint = pauseprint
+
 	var stop sync.WaitGroup
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
 	threadsyncin := make(chan bool, p.threads)
 	dChans.io.threadsyncin = threadsyncin
-	printpause := make(chan bool, 1)
-	dChans.io.printpause = printpause
 
 	threadsyncout := make(chan byte, p.threads)
 	dChans.io.threadsyncout = threadsyncout
@@ -223,21 +228,30 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.aliveOutput = aliveOutput
 	ioChans.distributor.aliveOutput = aliveOutput
 
-	var pause sync.WaitGroup
-	dChans.io.pause = &pause
+	startSend := make(chan bool)
+	keyChans.startSend = startSend
 
-	outputS := make(chan int, p.threads)
-	dChans.io.outputS = outputS
+	finishedSend := make(chan bool, p.threads)
+	keyChans.finishedSend = finishedSend
+
 	currentCells := make(chan cell, p.imageHeight*p.imageWidth)
-	dChans.io.currentCells = currentCells
-	stopS := make(chan int, p.threads)
-	dChans.io.stopS = stopS
+	keyChans.currentCells = currentCells
+
+	printTurns := make(chan bool)
+	turnsPrinted := make(chan bool, 1)
+
+	keyChans.printTurns = printTurns
+	keyChans.turnsPrinted = turnsPrinted
+
+	var pause sync.WaitGroup
+	keyChans.pause = &pause
+
 
 	aliveCells := make(chan []cell)
 	go periodic(dChans, p)
-	go distributor(p, dChans, aliveCells)
+	go distributor(p, dChans, aliveCells, keyChans)
 
-	go keyboardInputs(p, keyChan, dChans, ioChans)
+	go keyboardInputs(p, keyChan, dChans,keyChans)
 	stop.Add(1)
 	go pgmIo(p, ioChans)
 
@@ -266,24 +280,24 @@ func main() {
 	flag.IntVar(
 		&params.threads,
 		"t",
-		10,
+		8,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		512,
+		128,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		512,
+		128,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()
 
-	params.turns = 500
+	params.turns = 5000
 
 	startControlServer(params)
 	keyChannel := make(chan rune)
