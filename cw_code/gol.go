@@ -65,29 +65,33 @@ func numNeighbours(x int, y int, world [][]byte) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
+	x1 := getx(x-1, Width)
+	x2 := getx(x+1, Width)
+	y1 := getx(y-1, Height)
+	y2 := getx(y+1, Height)
 
-	if world[y][getx(x-1, Width)] != 0 {
+	if world[y][x1] != 0 {
 		num++
 	}
-	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
+	if world[y2][x1] != 0 {
 		num++
 	}
-	if world[gety(y+1, Height)][x] != 0 {
+	if world[y2][x] != 0 {
 		num++
 	}
-	if world[gety(y+1, Height)][getx(x+1, Width)] != 0 {
+	if world[y2][x2] != 0 {
 		num++
 	}
-	if world[y][getx(x+1, Width)] != 0 {
+	if world[y][x2] != 0 {
 		num++
 	}
-	if world[gety(y-1, Height)][getx(x+1, Width)] != 0 {
+	if world[y1][x2] != 0 {
 		num++
 	}
-	if world[gety(y-1, Height)][x] != 0 {
+	if world[y1][x] != 0 {
 		num++
 	}
-	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
+	if world[y1][x1] != 0 {
 		num++
 	}
 
