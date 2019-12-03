@@ -35,24 +35,21 @@ type cell struct {
 	x, y int
 }
 
-
-type keyChans struct{
-	startSend chan bool 
+type keyChans struct {
+	startSend    chan bool
 	finishedSend chan bool
 	currentCells chan cell
 	turnsPrinted chan bool
-	printTurns chan bool 
-	pause *sync.WaitGroup
-
+	printTurns   chan bool
+	pause        *sync.WaitGroup
 }
 
-type threadSyncChans struct{
-	threadSyncIn chan bool
+type threadSyncChans struct {
+	threadSyncIn  chan bool
 	threadSyncOut chan byte
 }
 
-type periodicOutputs struct{
-
+type periodicOutputs struct {
 }
 
 // distributorToIo defines all chans that the distributor goroutine will have to communicate with the io goroutine.
@@ -130,10 +127,13 @@ func collateBoard(dChans distributorChans, p golParams, k keyChans) []cell {
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, kChans keyChans) {
 	paused := false
 	for {
+		time.Sleep(17 * time.Millisecond)
 		//Receives the cells that are currently alive from the distributer
 		select {
 		case key := <-keyChan:
+			fmt.Println(key)
 			switch key {
+
 			case 's':
 
 				kChans.startSend <- true
@@ -166,7 +166,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, k
 				}
 			case 'q':
 				kChans.startSend <- true
-				currentAlive := collateBoard(dChans, p,kChans)
+				currentAlive := collateBoard(dChans, p, kChans)
 				kChans.pause.Add(1)
 				writePgmTurn(p, currentAlive)
 				StopControlServer()
@@ -246,12 +246,11 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	var pause sync.WaitGroup
 	keyChans.pause = &pause
 
-
 	aliveCells := make(chan []cell)
 	go periodic(dChans, p)
 	go distributor(p, dChans, aliveCells, keyChans)
 
-	go keyboardInputs(p, keyChan, dChans,keyChans)
+	go keyboardInputs(p, keyChan, dChans, keyChans)
 	stop.Add(1)
 	go pgmIo(p, ioChans)
 
@@ -297,10 +296,10 @@ func main() {
 
 	flag.Parse()
 
-	params.turns = 5000
+	params.turns = 500000
 
 	startControlServer(params)
-	keyChannel := make(chan rune)
+	keyChannel := make(chan rune, 60)
 	go getKeyboardCommand(keyChannel)
 	gameOfLife(params, keyChannel)
 	StopControlServer()
