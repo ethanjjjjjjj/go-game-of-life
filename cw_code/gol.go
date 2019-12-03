@@ -114,6 +114,8 @@ func threadSyncer(d distributorChans, p golParams) {
 		case <-d.io.periodicOutput:
 			signal = 1
 
+		case <-d.io.outputS:
+			signal = 2
 		default:
 		}
 
@@ -148,10 +150,25 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 		//fmt.Println(turns)
 		d.io.threadsyncin <- true
 		signal := <-d.io.threadsyncout
+		d.io.pause.Wait()
 		if signal == 1 {
 			fmt.Println("thread index: ", index, " turn: ", turns)
 			d.io.periodicNumber <- len(aliveCells(worldslice[1 : len(worldslice)-1]))
 
+		} else if signal == 2 {
+			alive := aliveCells(worldslice[1 : len(worldslice)-1])
+			n := len(alive)
+			var yActual = 0
+			for i := 0; i < n; i++ {
+				if index < remainder {
+					yActual = (index * rows) + index + alive[i].y
+				} else {
+					yActual = (index * rows) + remainder + alive[i].y
+				}
+				toSend := cell{x: alive[i].x, y: yActual}
+				d.io.currentCells <- toSend
+			}
+			d.io.stopS <- 1
 		}
 
 		//fmt.Println("gol: ", 2)

@@ -57,6 +57,10 @@ type distributorToIo struct {
 	numberLogged   chan byte
 	turnsync       chan int
 	turnsback      chan int
+
+	outputS      chan int
+	currentCells chan cell
+	stopS        chan int
 }
 
 // ioToDistributor defines all chans that the io goroutine will have to communicate with the distributor goroutine.
@@ -87,17 +91,45 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 	paused := false
 	for {
 		//Receives the cells that are currently alive from the distributer
-		currentAlive := <-ioChans.distributor.output
+		//currentAlive := <-ioChans.distributor.output
 		select {
 		case key := <-keyChan:
 			switch key {
 			case 's':
+
+				dChans.io.outputS <- 1
+
+				var receivedFrom = 0
+				for {
+					<-dChans.io.stopS
+					receivedFrom++
+					if receivedFrom == p.threads {
+						break
+					}
+				}
+
+				var currentAlive []cell
+				finishedloop := false
+				for {
+					select {
+					case c := <-dChans.io.currentCells:
+						currentAlive = append(currentAlive, c)
+						break
+					default:
+						finishedloop = true
+						break
+					}
+					if finishedloop {
+						break
+					}
+				}
 				//runs a go routine each time a new pgm file is to be made
 				go writePgmTurn(p, currentAlive)
 			case 'p':
 				dChans.io.pause.Add(1)
+				fmt.Println("Paused")
 				//Creates a world to print and then pauses the distributer
-				world := make([][]byte, p.imageHeight)
+				/*world := make([][]byte, p.imageHeight)
 				for i := range world {
 					world[i] = make([]byte, p.imageWidth)
 				}
@@ -106,7 +138,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					world[cell.y][cell.x] = 255
 				}
 				fmt.Println("Current state of the world:")
-				printGrid(world)
+				printGrid(world)*/
 
 				//On the next 'p' press the distributer can continue
 				for {
@@ -127,7 +159,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 				}
 			case 'q':
 				//Prints world in current state and quits
-				world := make([][]byte, p.imageHeight)
+				/*world := make([][]byte, p.imageHeight)
 				for i := range world {
 					world[i] = make([]byte, p.imageWidth)
 				}
@@ -136,7 +168,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					world[cell.y][cell.x] = 255
 				}
 				fmt.Println("Final state of the world:")
-				printGrid(world)
+				printGrid(world)*/
 
 				os.Exit(0)
 			}
@@ -201,6 +233,13 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	var pause sync.WaitGroup
 	dChans.io.pause = &pause
 
+	outputS := make(chan int, p.threads)
+	dChans.io.outputS = outputS
+	currentCells := make(chan cell, p.imageHeight*p.imageWidth)
+	dChans.io.currentCells = currentCells
+	stopS := make(chan int, p.threads)
+	dChans.io.stopS = stopS
+
 	aliveCells := make(chan []cell)
 	go periodic(dChans, p)
 	go distributor(p, dChans, aliveCells)
@@ -236,7 +275,7 @@ func main() {
 	flag.IntVar(
 		&params.threads,
 		"t",
-		6,
+		4,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(
@@ -255,9 +294,9 @@ func main() {
 
 	params.turns = 100000000
 
-	//startControlServer(params)
+	startControlServer(params)
 	keyChannel := make(chan rune)
 	go getKeyboardCommand(keyChannel)
 	gameOfLife(params, keyChannel)
-	//StopControlServer()
+	StopControlServer()
 }
