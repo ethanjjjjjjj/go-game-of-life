@@ -58,6 +58,8 @@ type distributorToIo struct {
 	turnsync       chan int
 	turnsback      chan int
 
+	pauseprint   chan bool
+	printpause   chan bool
 	outputS      chan int
 	currentCells chan cell
 	stopS        chan int
@@ -87,6 +89,33 @@ type ioChans struct {
 	distributor ioToDistributor
 }
 
+func collateboard(dChans distributorChans, p golParams) []cell {
+	var receivedFrom = 0
+	for {
+		<-dChans.io.stopS
+		receivedFrom++
+		if receivedFrom == p.threads {
+			break
+		}
+	}
+
+	var currentAlive []cell
+	finishedloop := false
+	for {
+		select {
+		case c := <-dChans.io.currentCells:
+			currentAlive = append(currentAlive, c)
+			break
+		default:
+			finishedloop = true
+			break
+		}
+		if finishedloop {
+			break
+		}
+	}
+	return currentAlive
+}
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, ioChans ioChans) {
 	paused := false
 	for {
@@ -99,33 +128,12 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 
 				dChans.io.outputS <- 1
 
-				var receivedFrom = 0
-				for {
-					<-dChans.io.stopS
-					receivedFrom++
-					if receivedFrom == p.threads {
-						break
-					}
-				}
-
-				var currentAlive []cell
-				finishedloop := false
-				for {
-					select {
-					case c := <-dChans.io.currentCells:
-						currentAlive = append(currentAlive, c)
-						break
-					default:
-						finishedloop = true
-						break
-					}
-					if finishedloop {
-						break
-					}
-				}
 				//runs a go routine each time a new pgm file is to be made
+				currentAlive := collateboard(dChans, p)
 				go writePgmTurn(p, currentAlive)
 			case 'p':
+				dChans.io.pauseprint <- true
+				<-dChans.io.printpause
 				dChans.io.pause.Add(1)
 				fmt.Println("Paused")
 				//Creates a world to print and then pauses the distributer
@@ -146,6 +154,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					case key := <-keyChan:
 						switch key {
 						case 'p':
+
 							dChans.io.pause.Done()
 							fmt.Println("Continuing")
 							paused = true
@@ -158,6 +167,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 					}
 				}
 			case 'q':
+				dChans.io.outputS <- 1
 				//Prints world in current state and quits
 				/*world := make([][]byte, p.imageHeight)
 				for i := range world {
@@ -169,6 +179,9 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 				}
 				fmt.Println("Final state of the world:")
 				printGrid(world)*/
+				currentAlive := collateboard(dChans, p)
+				dChans.io.pause.Add(1)
+				writePgmTurn(p, currentAlive)
 
 				os.Exit(0)
 			}
@@ -216,12 +229,15 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 	dChans.io.turnsync = turnsync
 	turnsback := make(chan int)
 	dChans.io.turnsback = turnsback
-
+	pauseprint := make(chan bool)
+	dChans.io.pauseprint = pauseprint
 	var stop sync.WaitGroup
 	dChans.io.stop = &stop
 	ioChans.distributor.stop = &stop
 	threadsyncin := make(chan bool, p.threads)
 	dChans.io.threadsyncin = threadsyncin
+	printpause := make(chan bool, 1)
+	dChans.io.printpause = printpause
 
 	threadsyncout := make(chan byte, p.threads)
 	dChans.io.threadsyncout = threadsyncout
@@ -257,13 +273,13 @@ func periodic(d distributorChans, p golParams) {
 	for {
 		//fmt.Println("send output signal")
 		time.Sleep(2 * time.Second)
-		fmt.Println("main:", 1)
+		//fmt.Println("main:", 1)
 		d.io.periodicOutput <- true
 		number := 0
 		for i := 0; i < p.threads; i++ {
 			number += <-d.io.periodicNumber
 		}
-		fmt.Println(number)
+		fmt.Println("cells alive: ", number)
 	}
 }
 
@@ -275,7 +291,7 @@ func main() {
 	flag.IntVar(
 		&params.threads,
 		"t",
-		4,
+		10,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(

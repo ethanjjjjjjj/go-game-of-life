@@ -116,6 +116,8 @@ func threadSyncer(d distributorChans, p golParams) {
 
 		case <-d.io.outputS:
 			signal = 2
+		case <-d.io.pauseprint:
+			signal = 3
 		default:
 		}
 
@@ -150,9 +152,8 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 		//fmt.Println(turns)
 		d.io.threadsyncin <- true
 		signal := <-d.io.threadsyncout
-		d.io.pause.Wait()
 		if signal == 1 {
-			fmt.Println("thread index: ", index, " turn: ", turns)
+			//fmt.Println("thread index: ", index, " turn: ", turns)
 			d.io.periodicNumber <- len(aliveCells(worldslice[1 : len(worldslice)-1]))
 
 		} else if signal == 2 {
@@ -169,8 +170,11 @@ func golWorker(workerChans workerExchange, worldData chan cell, index int, slice
 				d.io.currentCells <- toSend
 			}
 			d.io.stopS <- 1
+		} else if signal == 3 && index == 0 {
+			fmt.Println("turn: ", turns)
+			d.io.printpause <- true
 		}
-
+		d.io.pause.Wait()
 		//fmt.Println("gol: ", 2)
 
 		worldnew := make([][]byte, height)
