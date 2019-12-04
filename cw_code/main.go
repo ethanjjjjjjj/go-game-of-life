@@ -35,6 +35,7 @@ type cell struct {
 	x, y int
 }
 
+//Defines channels that the keyboard inputs use to communicate to the workers
 type keyChans struct {
 	startSend    chan bool
 	finishedSend chan bool
@@ -116,6 +117,7 @@ func collateBoard(dChans distributorChans, p golParams, k keyChans) []cell {
 	}
 	return currentAlive
 }
+
 func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, kChans keyChans) {
 	paused := false
 	for {
@@ -123,12 +125,8 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, k
 		select {
 		case key := <-keyChan:
 			switch key {
-
 			case 's':
-
 				kChans.startSend <- true
-
-				//runs a go routine each time a new pgm file is to be made
 				currentAlive := collateBoard(dChans, p, kChans)
 				go writePgmTurn(p, currentAlive)
 			case 'p':
@@ -251,7 +249,6 @@ func gameOfLife(p golParams, keyChan <-chan rune) []cell {
 
 func periodic(d distributorChans, p golParams) {
 	for {
-
 		d.io.periodicOutput <- true
 		number := 0
 		for i := 0; i < p.threads; i++ {
@@ -276,13 +273,13 @@ func main() {
 	flag.IntVar(
 		&params.imageWidth,
 		"w",
-		128,
+		512,
 		"Specify the width of the image. Defaults to 512.")
 
 	flag.IntVar(
 		&params.imageHeight,
 		"h",
-		128,
+		512,
 		"Specify the height of the image. Defaults to 512.")
 
 	flag.Parse()

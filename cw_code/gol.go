@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+//Defines the channels used for the workers to communicate with each other
 type workerExchange struct {
 	rTop <-chan byte //receiving the top row
 	sTop chan<- byte //sending the top row
@@ -13,6 +14,7 @@ type workerExchange struct {
 	sBot chan<- byte //sending the bottom row
 }
 
+//Information that each worker needs about their slice
 type sliceInfo struct {
 	index    int
 	height   int
@@ -20,6 +22,7 @@ type sliceInfo struct {
 	numAlive int
 }
 
+//Defines channels to send the original and final cells to and from distributor and workers
 type workerIO struct {
 	inputCell      chan cell
 	outputCell     chan cell
@@ -111,12 +114,13 @@ func aliveCells(world [][]byte) []cell {
 	return alive
 }
 
+//Synchronises the workers so when the world needs to be generated mid turn they are all on the same turn
+//Also tells the workers what to do depending on key presses
 func threadSyncer(d distributorChans, p golParams, k keyChans) {
 	var signal byte
 	for {
 		signal = 0
 		select {
-
 		case <-d.io.periodicOutput:
 			signal = 1
 
@@ -155,14 +159,17 @@ func golWorker(workerIO workerIO, workerChans workerExchange, sliceInfo sliceInf
 
 		d.io.threadsyncin <- true
 		signal := <-d.io.threadsyncout
+		//Outputs number of alive cells for periodic outputs
 		if signal == 1 {
 			d.io.periodicNumber <- len(aliveCells(worldslice[1 : len(worldslice)-1]))
 
+		//Outputs current alive cells for pgm file generation
 		} else if signal == 2 {
 			alive := aliveCells(worldslice[1 : len(worldslice)-1])
 			n := len(alive)
 			var yActual = 0
 			for i := 0; i < n; i++ {
+				//Y value must be corrected to what it should be in the whole world
 				if sliceInfo.index < remainder {
 					yActual = (sliceInfo.index * rows) + sliceInfo.index + alive[i].y
 				} else {
@@ -173,6 +180,7 @@ func golWorker(workerIO workerIO, workerChans workerExchange, sliceInfo sliceInf
 			}
 			k.finishedSend <- true
 		} else if signal == 3 && sliceInfo.index == 0 {
+			//Prints the turn number when paused
 			fmt.Println("Turn: ", turns)
 			k.turnsPrinted <- true
 		}
@@ -220,6 +228,7 @@ func golWorker(workerIO workerIO, workerChans workerExchange, sliceInfo sliceInf
 		copy(worldslice, worldnew)
 
 	}
+	//Sending alive cells back to distributor
 	for y := 1; y < len(worldslice)-1; y++ {
 		for x := 0; x < len(worldslice[y]); x++ {
 			if worldslice[y][x] == 255 {
@@ -261,6 +270,7 @@ func distributor(p golParams, d distributorChans, alive chan []cell, k keyChans)
 		}
 	}
 
+	//The channels the workers will receive and send the alive cells on
 	var workerIO workerIO
 	workerIO.inputCell = make(chan cell)
 	workerIO.outputCell = make(chan cell, p.imageHeight*p.imageWidth)
