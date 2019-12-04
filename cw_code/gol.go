@@ -119,7 +119,6 @@ func threadSyncer(d distributorChans, p golParams, k keyChans) {
 
 		case <-d.io.periodicOutput:
 			signal = 1
-			fmt.Println("Received")
 
 		case <-k.startSend:
 			signal = 2
@@ -241,9 +240,6 @@ func golWorker(workerIO workerIO, workerChans workerExchange, sliceInfo sliceInf
 func distributor(p golParams, d distributorChans, alive chan []cell, k keyChans) {
 	go threadSyncer(d, p, k)
 
-	//channels for passing the cells through to workers
-	//worldData := make(chan cell)
-
 	// Create the 2D slice to store the world.
 	world := make([][]byte, p.imageHeight)
 	for i := range world {
@@ -264,9 +260,6 @@ func distributor(p golParams, d distributorChans, alive chan []cell, k keyChans)
 			}
 		}
 	}
-
-	//slicereturns := make(chan cell, p.imageHeight*p.imageWidth)
-	//workerfinished := make(chan bool, p.threads)
 
 	var workerIO workerIO
 	workerIO.inputCell = make(chan cell)

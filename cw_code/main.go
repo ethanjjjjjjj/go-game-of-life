@@ -44,14 +44,6 @@ type keyChans struct {
 	pause        *sync.WaitGroup
 }
 
-type threadSyncChans struct {
-	threadSyncIn  chan bool
-	threadSyncOut chan byte
-}
-
-type periodicOutputs struct {
-}
-
 // distributorToIo defines all chans that the distributor goroutine will have to communicate with the io goroutine.
 // Note the restrictions on chans being send-only or receive-only to prevent bugs.
 type distributorToIo struct {
@@ -128,10 +120,8 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, k
 	paused := false
 	for {
 		time.Sleep(17 * time.Millisecond)
-		//Receives the cells that are currently alive from the distributer
 		select {
 		case key := <-keyChan:
-			fmt.Println(key)
 			switch key {
 
 			case 's':
@@ -147,7 +137,7 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, k
 				kChans.pause.Add(1)
 				fmt.Println("Paused")
 
-				//On the next 'p' press the distributer can continue
+				//Can continue on the next p press
 				for {
 					select {
 					case key := <-keyChan:
