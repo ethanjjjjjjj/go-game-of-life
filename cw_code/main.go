@@ -128,8 +128,8 @@ func keyboardInputs(p golParams, keyChan <-chan rune, dChans distributorChans, i
 				for _, cell := range currentAlive {
 					world[cell.y][cell.x] = 255
 				}
-				fmt.Println("Final state of the world:")
-				printGrid(world)
+				
+				writePgmTurn(p,currentAlive)
 
 				os.Exit(0)
 			}
