@@ -13,7 +13,8 @@ go test -c -o gameoflife.test
 
 echo "Benchmarking..."
 
-benchtime=10x
+benchtime=10s
+
 
 #for b in 128x128x2 128x128x4 128x128x8 512x512x2 512x512x4 512x512x8
 for b in 128x128x2 128x128x4 128x128x8

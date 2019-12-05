@@ -6,10 +6,27 @@ import (
 	"strings"
 )
 
-//This struct is used when piecing the world back together
-type worldpart struct {
-	index      int
-	worldslice [][]byte
+//Defines the channels used for the workers to communicate with each other
+type workerExchange struct {
+	rTop <-chan byte //receiving the top row
+	sTop chan<- byte //sending the top row
+	rBot <-chan byte //receiving the bottom row
+	sBot chan<- byte //sending the bottom row
+}
+
+//Information that each worker needs about their slice
+type sliceInfo struct {
+	index    int
+	height   int
+	width    int
+	numAlive int
+}
+
+//Defines channels to send the original and final cells to and from distributor and workers
+type workerIO struct {
+	inputCell      chan cell
+	outputCell     chan cell
+	workerFinished chan bool
 }
 
 func printGrid(world [][]byte) {
@@ -44,7 +61,6 @@ func gety(y int, height int) int {
 		return height - 1
 	}
 	return y
-
 }
 
 // returns number of alive neighbours to a cell
@@ -52,42 +68,42 @@ func numNeighbours(x int, y int, world [][]byte) int {
 	var num = 0
 	Height := len(world)
 	Width := len(world[0])
-	//This case is for when the x and y value of a cell and its neighbours
-	//are not near the boundary of the world so the getx and gety functions
-	//are not used unnecessarily
+	x1 := getx(x-1, Width)
+	x2 := getx(x+1, Width)
+	y1 := getx(y-1, Height)
+	y2 := getx(y+1, Height)
 
-	if world[y][getx(x-1, Width)] != 0 {
+	if world[y][x1] != 0 {
 		num++
 	}
-	if world[gety(y+1, Height)][getx(x-1, Width)] != 0 {
+	if world[y2][x1] != 0 {
 		num++
 	}
-	if world[gety(y+1, Height)][x] != 0 {
+	if world[y2][x] != 0 {
 		num++
 	}
-	if world[gety(y+1, Height)][getx(x+1, Width)] != 0 {
+	if world[y2][x2] != 0 {
 		num++
 	}
-	if world[y][getx(x+1, Width)] != 0 {
+	if world[y][x2] != 0 {
 		num++
 	}
-	if world[gety(y-1, Height)][getx(x+1, Width)] != 0 {
+	if world[y1][x2] != 0 {
 		num++
 	}
-	if world[gety(y-1, Height)][x] != 0 {
+	if world[y1][x] != 0 {
 		num++
 	}
-	if world[gety(y-1, Height)][getx(x-1, Width)] != 0 {
+	if world[y1][x1] != 0 {
 		num++
 	}
 
 	return num
 }
 
-//Returns an array of alive cells in the world
-func aliveCells(p golParams, world [][]byte) []cell {
+//Returns a slice of alive cells in the world
+func aliveCells(world [][]byte) []cell {
 	var alive []cell
-	// Go through the world and append the cells that are still alive.
 	for y := 0; y < len(world); y++ {
 		for x := 0; x < len(world[0]); x++ {
 			if world[y][x] != 0 {
@@ -98,58 +114,140 @@ func aliveCells(p golParams, world [][]byte) []cell {
 	return alive
 }
 
-func golWorker(worldData chan cell, index int, slicereturns chan cell, height int, width int, numAlive int, p golParams, workerFinished chan bool) {
-	worldslice := make([][]byte, height)
+//Synchronises the workers so when the world needs to be generated mid turn they are all on the same turn
+//Also tells the workers what to do depending on key presses
+func threadSyncer(d distributorChans, p golParams, k keyChans) {
+	var signal byte
+	for {
+		signal = 0
+		select {
+		case <-d.io.periodicOutput:
+			signal = 1
+
+		case <-k.startSend:
+			signal = 2
+		case <-k.printTurns:
+			signal = 3
+		default:
+		}
+
+		for i := 0; i < p.threads; i++ {
+			<-d.io.threadsyncin
+		}
+
+		for i := 0; i < p.threads; i++ {
+			d.io.threadsyncout <- signal
+		}
+	}
+}
+func golWorker(workerIO workerIO, workerChans workerExchange, sliceInfo sliceInfo, p golParams, d distributorChans, k keyChans) {
+
+	worldslice := make([][]byte, sliceInfo.height)
 	rows := p.imageHeight / p.threads
 	remainder := p.imageHeight % p.threads
-	for i := 0; i < height; i++ {
-		worldslice[i] = make([]byte, width)
-
+	for i := 0; i < sliceInfo.height; i++ {
+		worldslice[i] = make([]byte, sliceInfo.width)
 	}
 
-	for i := 0; i < numAlive; i++ {
-		currentcell := <-worldData
+	//Receives alive cells and puts them into the world
+	for i := 0; i < sliceInfo.numAlive; i++ {
+		currentcell := <-workerIO.inputCell
 		worldslice[currentcell.y][currentcell.x] = 255
 	}
-	//copies the slice to another one so the current slice is not overwritten prematurely
-	//fmt.Println("thread started")
-	//Will not compute on the top and bottom rows
+
+	for turns := 0; turns < p.turns; turns++ {
+
+		d.io.threadsyncin <- true
+		signal := <-d.io.threadsyncout
+		//Outputs number of alive cells for periodic outputs
+		if signal == 1 {
+			d.io.periodicNumber <- len(aliveCells(worldslice[1 : len(worldslice)-1]))
+
+		//Outputs current alive cells for pgm file generation
+		} else if signal == 2 {
+			alive := aliveCells(worldslice[1 : len(worldslice)-1])
+			n := len(alive)
+			var yActual = 0
+			for i := 0; i < n; i++ {
+				//Y value must be corrected to what it should be in the whole world
+				if sliceInfo.index < remainder {
+					yActual = (sliceInfo.index * rows) + sliceInfo.index + alive[i].y
+				} else {
+					yActual = (sliceInfo.index * rows) + remainder + alive[i].y
+				}
+				toSend := cell{x: alive[i].x, y: yActual}
+				k.currentCells <- toSend
+			}
+			k.finishedSend <- true
+		} else if signal == 3 && sliceInfo.index == 0 {
+			//Prints the turn number when paused
+			fmt.Println("Turn: ", turns)
+			k.turnsPrinted <- true
+		}
+		k.pause.Wait()
+
+		worldnew := make([][]byte, sliceInfo.height)
+		for i := 0; i < sliceInfo.height; i++ {
+			worldnew[i] = make([]byte, sliceInfo.width)
+			copy(worldnew[i], worldslice[i])
+		}
+
+		for y := 1; y < len(worldslice)-1; y++ {
+			for x := 0; x < len(worldslice[y]); x++ {
+				neighbours := numNeighbours(x, y, worldslice)
+				if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
+					worldnew[y][x] = 0
+				} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
+					worldnew[y][x] = 0
+				} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
+					worldnew[y][x] = 255
+				}
+			}
+		}
+
+		//Odd indexed workers send their rows before receiving
+		if sliceInfo.index%2 != 0 {
+			for i := 0; i < sliceInfo.width; i++ {
+				workerChans.sTop <- worldnew[1][i]
+				workerChans.sBot <- worldnew[sliceInfo.height-2][i]
+			}
+			for i := 0; i < sliceInfo.width; i++ {
+				worldnew[sliceInfo.height-1][i] = <-workerChans.rBot
+				worldnew[0][i] = <-workerChans.rTop
+			}
+		} else if sliceInfo.index%2 == 0 { //Even indexed workers receive their rows before sending
+			for i := 0; i < sliceInfo.width; i++ {
+				worldnew[sliceInfo.height-1][i] = <-workerChans.rBot
+				worldnew[0][i] = <-workerChans.rTop
+			}
+			for i := 0; i < sliceInfo.width; i++ {
+				workerChans.sTop <- worldnew[1][i]
+				workerChans.sBot <- worldnew[sliceInfo.height-2][i]
+			}
+		}
+		copy(worldslice, worldnew)
+
+	}
+	//Sending alive cells back to distributor
 	for y := 1; y < len(worldslice)-1; y++ {
 		for x := 0; x < len(worldslice[y]); x++ {
-			neighbours := numNeighbours(x, y, worldslice)
-			if neighbours < 2 && worldslice[y][x] == 255 { // 1 or fewer neighbours dies
-				//passed because only alive cells are returned
-			} else if neighbours > 3 && worldslice[y][x] == 255 { //4 or more neighbours dies
-
-				//passed because only alive cells are returned
-			} else if worldslice[y][x] == 0 && neighbours == 3 { //empty with 3 neighbours becomes alive
-				//slicereturns <- cell{x: x, y: (index * rows) + remainder + y - 1}
-				if index < remainder {
-					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					slicereturns <- cell1
+			if worldslice[y][x] == 255 {
+				if sliceInfo.index < remainder {
+					cell1 := cell{x: x, y: (sliceInfo.index * rows) + sliceInfo.index + y - 1}
+					workerIO.outputCell <- cell1
 				} else {
-					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					slicereturns <- cell1
-
-				}
-			} else if worldslice[y][x] == 255 {
-				if index < remainder {
-					cell1 := cell{x: x, y: (index * rows) + index + y - 1}
-					slicereturns <- cell1
-				} else {
-					cell1 := cell{x: x, y: (index * rows) + remainder + y - 1}
-					slicereturns <- cell1
+					cell1 := cell{x: x, y: (sliceInfo.index * rows) + remainder + y - 1}
+					workerIO.outputCell <- cell1
 				}
 			}
 		}
 	}
-	workerFinished <- true
+	workerIO.workerFinished <- true
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
-func distributor(p golParams, d distributorChans, alive chan []cell) {
-	//channels for passing the world through to workers
-	worldData := make(chan cell)
+func distributor(p golParams, d distributorChans, alive chan []cell, k keyChans) {
+	go threadSyncer(d, p, k)
 
 	// Create the 2D slice to store the world.
 	world := make([][]byte, p.imageHeight)
@@ -172,125 +270,137 @@ func distributor(p golParams, d distributorChans, alive chan []cell) {
 		}
 	}
 
-	// Calculate the new state of Game of Life after the given number of turns.
-	for turns := 0; turns < p.turns; turns++ {
+	//The channels the workers will receive and send the alive cells on
+	var workerIO workerIO
+	workerIO.inputCell = make(chan cell)
+	workerIO.outputCell = make(chan cell, p.imageHeight*p.imageWidth)
+	workerIO.workerFinished = make(chan bool, p.threads)
 
-		//Will wait if paused
-		d.io.pause.Wait()
+	rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
 
-		//splitworld
-		slicereturns := make(chan cell, p.imageHeight*p.imageWidth)
-		workerfinished := make(chan bool)
-		rows, remainder := p.imageHeight/p.threads, p.imageHeight%p.threads
-		//rowsindex is used to append the correct amount of rows to each slice
-		rowsindex := 0
-		//fmt.Println("worldbefore")
-		//printGrid(world)
-		for i := 0; i < (p.threads); i++ {
-			var worldslice [][]byte
-			//The first thread needs the final row from the other side of the world appended to its slice
-			if i == 0 {
-				worldslice = append(worldslice, world[len(world)-1:len(world)]...)
-			} else {
-				//appending the first additional row to a slice
-				worldslice = append(worldslice, world[rowsindex-1:rowsindex]...)
-			}
+	//rowsindex is used to append the correct amount of rows to each slice
+	rowsindex := 0
 
-			//Appends to each slice the correct number of rows
-			worldslice = append(worldslice, world[rowsindex:rowsindex+rows]...)
+	//For last thread bottom
+	rTop1 := make(chan byte, p.imageWidth*p.threads*p.threads)
+	sTop1 := make(chan byte, p.imageWidth*p.threads*p.threads)
 
-			//the next thread will need to have the next set of rows above the last row appended
-			rowsindex += rows
+	//Current thread top, next thread bottom
+	rememberBotR := make(chan byte, p.imageWidth*p.threads*p.threads)
+	rememberBotS := make(chan byte, p.imageWidth*p.threads*p.threads)
+	for i := 0; i < p.threads; i++ {
 
-			//If the number of threads does not divide evenly, addtional rows are added to each slice
-			if remainder > 0 {
-				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
-				//The next slice needs to start from further up
-				rowsindex++
-				//There are fewer remainder rows to append next time
-				remainder--
-			}
-
-			//The last thread needs the first row from the other side of the world appended to the end
-			if i == p.threads-1 {
-				worldslice = append(worldslice, world[0:1]...)
-			} else {
-				//the other threads have the next row appended
-				worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
-			}
-			alive := aliveCells(p, worldslice)
-			//printGrid(worldslice)
-			go golWorker(worldData, i, slicereturns, len(worldslice), len(worldslice[0]), len(alive), p, workerfinished)
-
-			for _, alivecell := range alive {
-				worldData <- alivecell
-			}
-
+		var worldslice [][]byte
+		//The first thread needs the final row from the other side of the world appended to its slice
+		if i == 0 {
+			worldslice = append(worldslice, world[len(world)-1:len(world)]...)
+		} else {
+			//appending the first additional row to a slice
+			worldslice = append(worldslice, world[rowsindex-1:rowsindex]...)
 		}
 
-		//Creates a 2D slice to reform the threads' slices together
-		worldnew := make([][]byte, p.imageHeight)
-		for i := range world {
-			worldnew[i] = make([]byte, p.imageWidth)
-		}
-		finished := 0
+		//Appends to each slice the correct number of rows
+		worldslice = append(worldslice, world[rowsindex:rowsindex+rows]...)
 
-		for i := 0; i < p.threads; i++ {
-			<-workerfinished
-			finished++
-		}
-		finishedloop := false
-		for {
-			select {
-			case cell := <-slicereturns:
-				//fmt.Println("cell received: ", cell)
-				worldnew[cell.y][cell.x] = 255
-				break
-			default:
-				finishedloop = true
-				break
-			}
-			if finishedloop {
-				break
-			}
+		//the next thread will need to have the next set of rows above the last row appended
+		rowsindex += rows
 
-		}
-		//fmt.Println("world after")
-		//printGrid(worldnew)
-
-		//sends all the alive cells to the keyboardInputs go routine after every turn
-		//so they can be used in creating pgm files when needed
-
-		var currentAlive = aliveCells(p, worldnew)
-		d.io.output <- currentAlive
-
-		//Copies the new world to the original world slice for the next turn
-		for i := 0; i < len(world); i++ {
-			world[i] = make([]byte, p.imageWidth)
-			copy(world[i], worldnew[i])
+		//If the number of threads does not divide evenly, addtional rows are added to each slice
+		if remainder > 0 {
+			worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
+			//The next slice needs to start from further up
+			rowsindex++
+			//There are fewer remainder rows to append next time
+			remainder--
 		}
 
-		//Outputs the number of alive cells for the periodic outouts
+		//The last thread needs the first row from the other side of the world appended to the end
+		if i == p.threads-1 {
+			worldslice = append(worldslice, world[0:1]...)
+		} else {
+			//the other threads have the next row appended
+			worldslice = append(worldslice, world[rowsindex:rowsindex+1]...)
+		}
+
+		alive := aliveCells(worldslice)
+
+		var sliceInfo sliceInfo
+		sliceInfo.index = i
+		sliceInfo.height = len(worldslice)
+		sliceInfo.width = len(worldslice[0])
+		sliceInfo.numAlive = len(alive)
+
+		if i == 0 {
+			var workerChans workerExchange
+			workerChans.rTop = rTop1
+			workerChans.sTop = sTop1
+			workerChans.rBot = rememberBotR
+			workerChans.sBot = rememberBotS
+			go golWorker(workerIO, workerChans, sliceInfo, p, d, k)
+		} else if i == p.threads-1 {
+			var workerChans workerExchange
+			workerChans.rTop = rememberBotS
+			workerChans.sTop = rememberBotR
+			workerChans.rBot = sTop1
+			workerChans.sBot = rTop1
+			go golWorker(workerIO, workerChans, sliceInfo, p, d, k)
+		} else {
+			var workerChans workerExchange
+			workerChans.rTop = rememberBotS
+			workerChans.sTop = rememberBotR
+			var newChanR = make(chan byte, p.imageWidth*p.threads*p.threads)
+			var newChanS = make(chan byte, p.imageWidth*p.threads*p.threads)
+			rememberBotR = newChanR
+			rememberBotS = newChanS
+			workerChans.rBot = rememberBotR
+			workerChans.sBot = rememberBotS
+			go golWorker(workerIO, workerChans, sliceInfo, p, d, k)
+		}
+		for _, alivecell := range alive {
+			workerIO.inputCell <- alivecell
+		}
+
+	}
+
+	//Creates a 2D slice to reform the slices together
+	worldnew := make([][]byte, p.imageHeight)
+	for i := range world {
+		worldnew[i] = make([]byte, p.imageWidth)
+	}
+
+	//to indicate how many threads have finished outputting their alive cells
+	finished := 0
+
+	for i := 0; i < p.threads; i++ {
+		<-workerIO.workerFinished
+		finished++
+	}
+
+	//once all the threads have finished, the alive cells can be received
+	finishedloop := false
+	for {
 		select {
-		case <-d.io.periodicOutput:
-			fmt.Println("Number of alive cells: ", len(aliveCells(p, world)))
+		case cell := <-workerIO.outputCell:
+			worldnew[cell.y][cell.x] = 255
+			break
 		default:
-			//do nothing
+			finishedloop = true
+			break
+		}
+		if finishedloop {
+			break
 		}
 	}
 
-	var finalAlive = aliveCells(p, world)
+	var finalAlive = aliveCells(worldnew)
 
 	// Make sure that the Io has finished any output before exiting.
 	d.io.command <- ioCheckIdle
 	<-d.io.idle
 
-	fmt.Println(finalAlive)
-
 	// Telling pgm.go to start the write function
 	d.io.command <- ioOutput
 	d.io.filename <- strings.Join([]string{strconv.Itoa(p.imageWidth), strconv.Itoa(p.imageHeight)}, "x")
-	d.io.output <- finalAlive
 	// Return the coordinates of cells that are still alive.
 	d.io.aliveOutput <- finalAlive
 	alive <- finalAlive
